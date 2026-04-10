@@ -1,0 +1,20 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-production:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write production env file
+        run: ./deploy/scripts/write-env.sh .env.production "${{ secrets.PROD_ENV_FILE }}"
+
+      - name: Deploy production stack
+        run: ./deploy/scripts/deploy.sh production

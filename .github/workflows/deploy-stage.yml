@@ -1,0 +1,20 @@
+name: Deploy Stage
+
+on:
+  push:
+    branches:
+      - stage
+  workflow_dispatch:
+
+jobs:
+  deploy-stage:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write stage env file
+        run: ./deploy/scripts/write-env.sh .env.stage "${{ secrets.STAGE_ENV_FILE }}"
+
+      - name: Deploy stage stack
+        run: ./deploy/scripts/deploy.sh stage

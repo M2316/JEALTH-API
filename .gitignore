@@ -11,6 +11,8 @@ npm-debug.log*
 
 # environment
 .env
+.env.production
+.env.stage
 .env*.local
 
 # IDE

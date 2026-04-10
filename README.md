@@ -96,3 +96,82 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## Deployment
+
+This repository includes a Docker-based deployment stack for local production and future stage separation.
+
+- `docker-compose.yml` starts:
+  - `api-prod` + `postgres-prod`
+  - `api-stage` + `postgres-stage` under the `stage` profile
+- Production app is available on `http://localhost:3000`
+- Stage app is reserved for `http://localhost:3001` when the `stage` profile is enabled
+- Host `nginx` should receive port `80` and proxy it to `http://127.0.0.1:3000`
+
+### Environment files
+
+Create runtime env files from the examples:
+
+```bash
+cp .env.production.example .env.production
+cp .env.stage.example .env.stage
+```
+
+Required values:
+
+- `JWT_SECRET`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASS`
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+
+### Local deploy
+
+Production:
+
+```bash
+./deploy/scripts/deploy.sh production
+```
+
+Stage:
+
+```bash
+docker compose --profile stage up -d
+./deploy/scripts/deploy.sh stage
+```
+
+### Host Nginx
+
+Use the provided host nginx site config:
+
+```bash
+sudo cp deploy/nginx/jealth-api.conf /etc/nginx/sites-available/jealth-api
+sudo ln -s /etc/nginx/sites-available/jealth-api /etc/nginx/sites-enabled/jealth-api
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+After that, requests arriving on port `80` are forwarded to the production container on `127.0.0.1:3000`.
+
+### GitHub Actions
+
+Self-hosted workflows are included:
+
+- `.github/workflows/deploy-main.yml`
+- `.github/workflows/deploy-stage.yml`
+
+Set these repository secrets before enabling automatic deployment:
+
+- `PROD_ENV_FILE`
+- `STAGE_ENV_FILE`
+
+The runner machine must have Docker access. If the current shell does not see the `docker` group yet, start a new login session or use:
+
+```bash
+sg docker
+```
