@@ -1,0 +1,33 @@
+# compiled output
+dist/
+
+# dependencies
+node_modules/
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# environment
+.env
+.env*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# uploads (runtime generated)
+uploads/
+
+# test coverage
+coverage/
+
+# typescript
+*.tsbuildinfo
