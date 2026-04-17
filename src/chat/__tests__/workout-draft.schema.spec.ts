@@ -59,5 +59,81 @@ describe('workout-draft schema', () => {
         }),
       ).toThrow();
     });
+
+    it('rejects zero round', () => {
+      expect(() =>
+        WorkoutDraftZ.parse({
+          reply: 'x',
+          confidence: 'high',
+          draft: {
+            exercises: [
+              {
+                exerciseId: 'id-a',
+                name: 'x',
+                sets: [{ round: 0, reps: 1, weight: 1, weightUnit: 'kg' }],
+              },
+            ],
+          },
+        }),
+      ).toThrow();
+    });
+
+    it('rejects negative weight', () => {
+      expect(() =>
+        WorkoutDraftZ.parse({
+          reply: 'x',
+          confidence: 'high',
+          draft: {
+            exercises: [
+              {
+                exerciseId: 'id-a',
+                name: 'x',
+                sets: [{ round: 1, reps: 1, weight: -1, weightUnit: 'kg' }],
+              },
+            ],
+          },
+        }),
+      ).toThrow();
+    });
+
+    it('rejects empty sets array', () => {
+      expect(() =>
+        WorkoutDraftZ.parse({
+          reply: 'x',
+          confidence: 'high',
+          draft: {
+            exercises: [{ exerciseId: 'id-a', name: 'x', sets: [] }],
+          },
+        }),
+      ).toThrow();
+    });
+
+    it('rejects empty exercises array', () => {
+      expect(() =>
+        WorkoutDraftZ.parse({
+          reply: 'x',
+          confidence: 'high',
+          draft: { exercises: [] },
+        }),
+      ).toThrow();
+    });
+
+    it('rejects empty exerciseId / name', () => {
+      expect(() =>
+        WorkoutDraftZ.parse({
+          reply: 'x',
+          confidence: 'high',
+          draft: {
+            exercises: [
+              {
+                exerciseId: '',
+                name: 'x',
+                sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }],
+              },
+            ],
+          },
+        }),
+      ).toThrow();
+    });
   });
 });
