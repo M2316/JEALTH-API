@@ -12,13 +12,17 @@ describe('ChatController (integration)', () => {
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       controllers: [ChatController],
-      providers: [{ provide: ChatService, useValue: { processMessage: processMock } }],
+      providers: [
+        { provide: ChatService, useValue: { processMessage: processMock } },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .compile();
     app = module.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
   });
 
@@ -61,7 +65,10 @@ describe('ChatController (integration)', () => {
   });
 
   it('rejects when messages array exceeds 20', async () => {
-    const messages = Array.from({ length: 21 }, () => ({ role: 'user', content: 'x' }));
+    const messages = Array.from({ length: 21 }, () => ({
+      role: 'user',
+      content: 'x',
+    }));
     await request(app.getHttpServer())
       .post('/chat/workout')
       .send({ date: '2026-04-18', messages })

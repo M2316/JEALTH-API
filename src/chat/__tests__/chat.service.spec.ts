@@ -51,23 +51,21 @@ describe('ChatService', () => {
 
   it('retries once on Zod failure with corrective system note', async () => {
     rag.findCandidates.mockResolvedValue([{ id: 'id-a', name: 'x' }]);
-    gemini.generateJson
-      .mockResolvedValueOnce('not json')
-      .mockResolvedValueOnce(
-        JSON.stringify({
-          reply: 'ok',
-          confidence: 'low',
-          draft: {
-            exercises: [
-              {
-                exerciseId: 'id-a',
-                name: 'x',
-                sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }],
-              },
-            ],
-          },
-        }),
-      );
+    gemini.generateJson.mockResolvedValueOnce('not json').mockResolvedValueOnce(
+      JSON.stringify({
+        reply: 'ok',
+        confidence: 'low',
+        draft: {
+          exercises: [
+            {
+              exerciseId: 'id-a',
+              name: 'x',
+              sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }],
+            },
+          ],
+        },
+      }),
+    );
     const result = await service.processMessage({
       date: '2026-04-18',
       messages: [{ role: 'user', content: 'hello' }],
@@ -117,23 +115,21 @@ describe('ChatService', () => {
 
   it('injects lastError into systemInstruction on retry', async () => {
     rag.findCandidates.mockResolvedValue([{ id: 'id-a', name: 'x' }]);
-    gemini.generateJson
-      .mockResolvedValueOnce('garbage')
-      .mockResolvedValueOnce(
-        JSON.stringify({
-          reply: 'ok',
-          confidence: 'high',
-          draft: {
-            exercises: [
-              {
-                exerciseId: 'id-a',
-                name: 'x',
-                sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }],
-              },
-            ],
-          },
-        }),
-      );
+    gemini.generateJson.mockResolvedValueOnce('garbage').mockResolvedValueOnce(
+      JSON.stringify({
+        reply: 'ok',
+        confidence: 'high',
+        draft: {
+          exercises: [
+            {
+              exerciseId: 'id-a',
+              name: 'x',
+              sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }],
+            },
+          ],
+        },
+      }),
+    );
     await service.processMessage({
       date: '2026-04-18',
       messages: [{ role: 'user', content: 'hi' }],

@@ -54,12 +54,7 @@ export const buildWorkoutDraftResponseSchema = (candidateIds: string[]) => {
                       weightUnit: { type: Type.STRING, enum: ['kg', 'lbs'] },
                     },
                     required: ['round', 'reps', 'weight', 'weightUnit'],
-                    propertyOrdering: [
-                      'round',
-                      'reps',
-                      'weight',
-                      'weightUnit',
-                    ],
+                    propertyOrdering: ['round', 'reps', 'weight', 'weightUnit'],
                   },
                 },
               },

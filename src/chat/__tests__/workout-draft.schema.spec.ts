@@ -50,9 +50,7 @@ describe('workout-draft schema', () => {
               {
                 exerciseId: 'id-a',
                 name: 'x',
-                sets: [
-                  { round: 1, reps: 1, weight: 1, weightUnit: 'pounds' },
-                ],
+                sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'pounds' }],
               },
             ],
           },

@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsOptional, IsArray, IsUUID } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsArray,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateExerciseDto {
   @ApiProperty({ example: '벤치프레스' })

@@ -20,10 +20,7 @@ export class StatsController {
   }
 
   @Get('records')
-  getRecords(
-    @Query('exerciseId') exerciseId: string,
-    @Req() req: any,
-  ) {
+  getRecords(@Query('exerciseId') exerciseId: string, @Req() req: any) {
     return this.statsService.getPersonalRecords(req.user.id, exerciseId);
   }
 

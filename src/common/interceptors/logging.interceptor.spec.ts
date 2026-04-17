@@ -3,13 +3,15 @@ import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { of, lastValueFrom } from 'rxjs';
 import { LoggingInterceptor } from './logging.interceptor';
 
-function buildContext(overrides: Partial<{
-  method: string;
-  url: string;
-  ip: string;
-  userId: string | undefined;
-  statusCode: number;
-}> = {}): ExecutionContext {
+function buildContext(
+  overrides: Partial<{
+    method: string;
+    url: string;
+    ip: string;
+    userId: string | undefined;
+    statusCode: number;
+  }> = {},
+): ExecutionContext {
   const {
     method = 'GET',
     url = '/routines',
@@ -42,8 +44,12 @@ describe('LoggingInterceptor', () => {
 
   beforeEach(() => {
     interceptor = new LoggingInterceptor();
-    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
-    errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    logSpy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    errorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -52,7 +58,11 @@ describe('LoggingInterceptor', () => {
   });
 
   it('logs method, url, status and duration on success', async () => {
-    const ctx = buildContext({ method: 'POST', url: '/routines', statusCode: 201 });
+    const ctx = buildContext({
+      method: 'POST',
+      url: '/routines',
+      statusCode: 201,
+    });
     const next: CallHandler = { handle: () => of({ id: '1' }) };
 
     await lastValueFrom(interceptor.intercept(ctx, next));
@@ -65,7 +75,11 @@ describe('LoggingInterceptor', () => {
   });
 
   it('includes user id when request is authenticated', async () => {
-    const ctx = buildContext({ method: 'PATCH', url: '/routines/abc', userId: 'user-42' });
+    const ctx = buildContext({
+      method: 'PATCH',
+      url: '/routines/abc',
+      userId: 'user-42',
+    });
     const next: CallHandler = { handle: () => of({}) };
 
     await lastValueFrom(interceptor.intercept(ctx, next));
@@ -83,9 +97,9 @@ describe('LoggingInterceptor', () => {
       },
     };
 
-    await expect(
-      lastValueFrom(interceptor.intercept(ctx, next)),
-    ).rejects.toBe(boom);
+    await expect(lastValueFrom(interceptor.intercept(ctx, next))).rejects.toBe(
+      boom,
+    );
 
     expect(errorSpy).toHaveBeenCalledTimes(1);
     const message = errorSpy.mock.calls[0][0] as string;

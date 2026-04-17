@@ -8,7 +8,13 @@ jest.mock('@google/genai', () => ({
   GoogleGenAI: jest.fn().mockImplementation(() => ({
     models: { generateContent: generateContentMock },
   })),
-  Type: { OBJECT: 'OBJECT', STRING: 'STRING', ARRAY: 'ARRAY', INTEGER: 'INTEGER', NUMBER: 'NUMBER' },
+  Type: {
+    OBJECT: 'OBJECT',
+    STRING: 'STRING',
+    ARRAY: 'ARRAY',
+    INTEGER: 'INTEGER',
+    NUMBER: 'NUMBER',
+  },
 }));
 
 describe('GeminiService', () => {
@@ -22,12 +28,15 @@ describe('GeminiService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: (key: string) => ({
-              GEMINI_API_KEY: 'k',
-              GEMINI_MODEL: 'gemini-2.5-flash',
-              GEMINI_MAX_OUTPUT_TOKENS: 512,
-              GEMINI_TIMEOUT_MS: 15000,
-            } as Record<string, string | number>)[key],
+            get: (key: string) =>
+              (
+                ({
+                  GEMINI_API_KEY: 'k',
+                  GEMINI_MODEL: 'gemini-2.5-flash',
+                  GEMINI_MAX_OUTPUT_TOKENS: 512,
+                  GEMINI_TIMEOUT_MS: 15000,
+                }) as Record<string, string | number>
+              )[key],
           },
         },
       ],

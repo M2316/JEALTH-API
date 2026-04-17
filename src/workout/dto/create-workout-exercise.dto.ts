@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsUUID, IsOptional, IsInt, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsUUID,
+  IsOptional,
+  IsInt,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateWorkoutSetDto } from './create-workout-set.dto';
 
