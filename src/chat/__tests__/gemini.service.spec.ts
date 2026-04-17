@@ -56,4 +56,28 @@ describe('GeminiService', () => {
       }),
     ).rejects.toThrow('boom');
   });
+
+  it('throws at construction when GEMINI_API_KEY is missing', async () => {
+    const moduleRef = Test.createTestingModule({
+      providers: [
+        GeminiService,
+        {
+          provide: ConfigService,
+          useValue: { get: () => undefined },
+        },
+      ],
+    });
+    await expect(moduleRef.compile()).rejects.toThrow(/GEMINI_API_KEY/);
+  });
+
+  it('uses default temperature 0.2 when caller omits it', async () => {
+    generateContentMock.mockResolvedValue({ text: '{}' });
+    await service.generateJson({
+      systemInstruction: 's',
+      contents: [],
+      responseSchema: {} as never,
+    });
+    const callArg = generateContentMock.mock.calls[0][0];
+    expect(callArg.config.temperature).toBe(0.2);
+  });
 });
