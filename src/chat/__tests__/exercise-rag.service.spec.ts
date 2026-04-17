@@ -10,10 +10,15 @@ describe('ExerciseRagService', () => {
 
   beforeEach(async () => {
     queryMock = jest.fn();
+    const configMock = {
+      get: jest.fn((key: string) =>
+        key === 'EXERCISE_RAG_MIN_SIMILARITY' ? 0.1 : 10,
+      ),
+    };
     const module = await Test.createTestingModule({
       providers: [
         ExerciseRagService,
-        { provide: ConfigService, useValue: { get: () => 10 } },
+        { provide: ConfigService, useValue: configMock },
         {
           provide: getRepositoryToken(Exercise),
           useValue: { manager: { query: queryMock } },
@@ -32,6 +37,7 @@ describe('ExerciseRagService', () => {
     expect(queryMock).toHaveBeenCalled();
     const sql = queryMock.mock.calls[0][0] as string;
     expect(sql).toMatch(/similarity/);
+    expect(sql).toMatch(/<->/);
     expect(sql).toMatch(/LIMIT/);
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe('a');
@@ -41,5 +47,14 @@ describe('ExerciseRagService', () => {
     const result = await service.findCandidates('   ');
     expect(result).toEqual([]);
     expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('passes topK and minSimilarity to query bindings', async () => {
+    queryMock.mockResolvedValue([]);
+    await service.findCandidates('벤치');
+    const bindings = queryMock.mock.calls[0][1];
+    expect(bindings[0]).toBe('벤치'); // $1 message
+    expect(bindings[1]).toBe(10); // $2 topK
+    expect(bindings[2]).toBe(0.1); // $3 minSimilarity
   });
 });
