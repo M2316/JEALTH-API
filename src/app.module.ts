@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { WorkoutModule } from './workout/workout.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { WorkoutModule } from './workout/workout.module';
     UsersModule,
     AuthModule,
     WorkoutModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
