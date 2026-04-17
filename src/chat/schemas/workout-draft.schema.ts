@@ -13,8 +13,11 @@ import { z } from 'zod';
  * 필터링하고, 그 결과 `exercises` 가 비면 `confidence: 'low'` 로 처리해야 한다.
  * 이 sentinel 이 그대로 저장 단계로 흘러가면 무효한 운동 기록이 DB 에 들어간다.
  */
+export const WORKOUT_SENTINEL_ID = '__none__';
+
 export const buildWorkoutDraftResponseSchema = (candidateIds: string[]) => {
-  const enumValues = candidateIds.length > 0 ? candidateIds : ['__none__'];
+  const enumValues =
+    candidateIds.length > 0 ? candidateIds : [WORKOUT_SENTINEL_ID];
   return {
     type: Type.OBJECT,
     properties: {

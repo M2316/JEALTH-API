@@ -114,4 +114,64 @@ describe('ChatService', () => {
     expect(result.draft.exercises).toEqual([]);
     expect(result.confidence).toBe('low');
   });
+
+  it('injects lastError into systemInstruction on retry', async () => {
+    rag.findCandidates.mockResolvedValue([{ id: 'id-a', name: 'x' }]);
+    gemini.generateJson
+      .mockResolvedValueOnce('garbage')
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          reply: 'ok',
+          confidence: 'high',
+          draft: {
+            exercises: [
+              {
+                exerciseId: 'id-a',
+                name: 'x',
+                sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }],
+              },
+            ],
+          },
+        }),
+      );
+    await service.processMessage({
+      date: '2026-04-18',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    const firstCallSys = gemini.generateJson.mock.calls[0][0]
+      .systemInstruction as string;
+    const secondCallSys = gemini.generateJson.mock.calls[1][0]
+      .systemInstruction as string;
+    expect(firstCallSys).not.toMatch(/이전 응답이 다음 이유로 실패했다/);
+    expect(secondCallSys).toMatch(/이전 응답이 다음 이유로 실패했다/);
+  });
+
+  it('maps assistant→model role when building contents for Gemini', async () => {
+    rag.findCandidates.mockResolvedValue([{ id: 'id-a', name: 'x' }]);
+    gemini.generateJson.mockResolvedValue(
+      JSON.stringify({
+        reply: 'ok',
+        confidence: 'high',
+        draft: {
+          exercises: [
+            {
+              exerciseId: 'id-a',
+              name: 'x',
+              sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }],
+            },
+          ],
+        },
+      }),
+    );
+    await service.processMessage({
+      date: '2026-04-18',
+      messages: [
+        { role: 'user', content: 'q1' },
+        { role: 'assistant', content: 'a1' },
+        { role: 'user', content: 'q2' },
+      ],
+    });
+    const contents = gemini.generateJson.mock.calls[0][0].contents;
+    expect(contents.map((c: any) => c.role)).toEqual(['user', 'model', 'user']);
+  });
 });
