@@ -70,7 +70,7 @@ export class ChatService {
           })),
           responseSchema,
         });
-        const parsed = JSON.parse(text);
+        const parsed: unknown = JSON.parse(text);
         draft = WorkoutDraftZ.parse(parsed);
         break;
       } catch (e) {
