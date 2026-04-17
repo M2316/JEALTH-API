@@ -50,7 +50,10 @@ export class UsersService {
   }
 
   async setResetToken(id: string, token: string, expiry: Date): Promise<void> {
-    await this.usersRepo.update(id, { resetToken: token, resetTokenExpiry: expiry });
+    await this.usersRepo.update(id, {
+      resetToken: token,
+      resetTokenExpiry: expiry,
+    });
   }
 
   findByResetToken(token: string): Promise<User | null> {
@@ -58,10 +61,15 @@ export class UsersService {
   }
 
   async updatePassword(id: string, password: string): Promise<void> {
-    await this.usersRepo.update(id, { password: await bcrypt.hash(password, 10) });
+    await this.usersRepo.update(id, {
+      password: await bcrypt.hash(password, 10),
+    });
   }
 
   async clearResetToken(id: string): Promise<void> {
-    await this.usersRepo.update(id, { resetToken: null, resetTokenExpiry: null });
+    await this.usersRepo.update(id, {
+      resetToken: null,
+      resetTokenExpiry: null,
+    });
   }
 }

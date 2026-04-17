@@ -32,8 +32,11 @@ export class RoutineService {
 
       for (let i = 0; i < dto.exercises.length; i++) {
         const exDto = dto.exercises[i];
-        const exercise = await this.exerciseRepo.findOneBy({ id: exDto.exerciseId });
-        if (!exercise) throw new NotFoundException(`Exercise ${exDto.exerciseId} not found`);
+        const exercise = await this.exerciseRepo.findOneBy({
+          id: exDto.exerciseId,
+        });
+        if (!exercise)
+          throw new NotFoundException(`Exercise ${exDto.exerciseId} not found`);
 
         const workoutExercise = queryRunner.manager.create(WorkoutExercise, {
           routine: savedRoutine,
@@ -68,15 +71,28 @@ export class RoutineService {
   async findByDate(userId: string, date: string): Promise<WorkoutRoutine[]> {
     return this.routineRepo.find({
       where: { user: { id: userId }, date },
-      relations: ['exercises', 'exercises.exercise', 'exercises.exercise.muscleGroups', 'exercises.sets'],
-      order: { order: 'ASC', exercises: { order: 'ASC', sets: { round: 'ASC' } } },
+      relations: [
+        'exercises',
+        'exercises.exercise',
+        'exercises.exercise.muscleGroups',
+        'exercises.sets',
+      ],
+      order: {
+        order: 'ASC',
+        exercises: { order: 'ASC', sets: { round: 'ASC' } },
+      },
     });
   }
 
   async findOne(id: string, userId: string): Promise<WorkoutRoutine> {
     const routine = await this.routineRepo.findOne({
       where: { id, user: { id: userId } },
-      relations: ['exercises', 'exercises.exercise', 'exercises.exercise.muscleGroups', 'exercises.sets'],
+      relations: [
+        'exercises',
+        'exercises.exercise',
+        'exercises.exercise.muscleGroups',
+        'exercises.sets',
+      ],
     });
     if (!routine) throw new NotFoundException('Routine not found');
     return routine;
@@ -85,13 +101,22 @@ export class RoutineService {
   private async findOneInternal(id: string): Promise<WorkoutRoutine> {
     const routine = await this.routineRepo.findOne({
       where: { id },
-      relations: ['exercises', 'exercises.exercise', 'exercises.exercise.muscleGroups', 'exercises.sets'],
+      relations: [
+        'exercises',
+        'exercises.exercise',
+        'exercises.exercise.muscleGroups',
+        'exercises.sets',
+      ],
     });
     if (!routine) throw new NotFoundException('Routine not found');
     return routine;
   }
 
-  async update(id: string, dto: UpdateRoutineDto, userId: string): Promise<WorkoutRoutine> {
+  async update(
+    id: string,
+    dto: UpdateRoutineDto,
+    userId: string,
+  ): Promise<WorkoutRoutine> {
     const routine = await this.findOne(id, userId);
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -107,8 +132,13 @@ export class RoutineService {
 
         for (let i = 0; i < dto.exercises.length; i++) {
           const exDto = dto.exercises[i];
-          const exercise = await this.exerciseRepo.findOneBy({ id: exDto.exerciseId });
-          if (!exercise) throw new NotFoundException(`Exercise ${exDto.exerciseId} not found`);
+          const exercise = await this.exerciseRepo.findOneBy({
+            id: exDto.exerciseId,
+          });
+          if (!exercise)
+            throw new NotFoundException(
+              `Exercise ${exDto.exerciseId} not found`,
+            );
 
           const workoutExercise = queryRunner.manager.create(WorkoutExercise, {
             routine: { id } as any,
@@ -146,7 +176,11 @@ export class RoutineService {
     await this.routineRepo.remove(routine);
   }
 
-  async copyRoutine(sourceId: string, targetDate: string, userId: string): Promise<WorkoutRoutine> {
+  async copyRoutine(
+    sourceId: string,
+    targetDate: string,
+    userId: string,
+  ): Promise<WorkoutRoutine> {
     const source = await this.findOne(sourceId, userId);
     const dto: CreateRoutineDto = {
       date: targetDate,
