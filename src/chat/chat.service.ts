@@ -96,9 +96,12 @@ export class ChatService {
         ? 'low'
         : draft.confidence;
 
+    const parseSuccess = finalConfidence === 'high' && filteredExercises.length > 0;
+
     return {
       reply: draft.reply,
       confidence: finalConfidence,
+      parseSuccess,
       draft: { exercises: filteredExercises },
       candidates: finalConfidence === 'low' ? candidates : undefined,
     };

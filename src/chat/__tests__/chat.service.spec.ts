@@ -44,6 +44,7 @@ describe('ChatService', () => {
       messages: [{ role: 'user', content: '벤치 1세트 10개 20kg' }],
     });
     expect(result.confidence).toBe('high');
+    expect(result.parseSuccess).toBe(true);
     expect(result.draft.exercises[0].exerciseId).toBe('id-a');
     expect(result.candidates).toBeUndefined();
     expect(gemini.generateJson).toHaveBeenCalledTimes(1);
@@ -111,6 +112,7 @@ describe('ChatService', () => {
     });
     expect(result.draft.exercises).toEqual([]);
     expect(result.confidence).toBe('low');
+    expect(result.parseSuccess).toBe(false);
   });
 
   it('injects lastError into systemInstruction on retry', async () => {
