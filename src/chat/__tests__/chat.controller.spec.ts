@@ -41,9 +41,23 @@ describe('ChatController (integration)', () => {
       .send({
         date: '2026-04-18',
         messages: [{ role: 'user', content: '안녕' }],
-      });
-    expect(res.status).toBeLessThan(300);
+      })
+      .expect(200);
     expect(res.body.reply).toBe('ok');
+  });
+
+  it('rejects empty messages array', async () => {
+    await request(app.getHttpServer())
+      .post('/chat/workout')
+      .send({ date: '2026-04-18', messages: [] })
+      .expect(400);
+  });
+
+  it('rejects empty content', async () => {
+    await request(app.getHttpServer())
+      .post('/chat/workout')
+      .send({ date: '2026-04-18', messages: [{ role: 'user', content: '' }] })
+      .expect(400);
   });
 
   it('rejects when messages array exceeds 20', async () => {
@@ -57,7 +71,7 @@ describe('ChatController (integration)', () => {
   it('rejects when date is missing', async () => {
     await request(app.getHttpServer())
       .post('/chat/workout')
-      .send({ messages: [] })
+      .send({ messages: [{ role: 'user', content: 'x' }] })
       .expect(400);
   });
 

@@ -1,9 +1,11 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsIn,
   IsISO8601,
+  IsNotEmpty,
   IsString,
   MaxLength,
   ValidateNested,
@@ -14,6 +16,7 @@ export class ChatMessageDto {
   role!: 'user' | 'assistant';
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(2000)
   content!: string;
 }
@@ -23,6 +26,7 @@ export class ChatRequestDto {
   date!: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(20)
   @ValidateNested({ each: true })
   @Type(() => ChatMessageDto)
