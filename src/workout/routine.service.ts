@@ -1,12 +1,26 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { WorkoutRoutine } from './entities/workout-routine.entity';
 import { WorkoutExercise } from './entities/workout-exercise.entity';
 import { WorkoutSet } from './entities/workout-set.entity';
 import { Exercise } from './entities/exercise.entity';
 import { CreateRoutineDto } from './dto/create-routine.dto';
 import { UpdateRoutineDto } from './dto/update-routine.dto';
+
+export interface AppendSetParams {
+  round: number;
+  reps: number;
+  weight: number;
+  weightUnit: 'kg' | 'lbs';
+}
+
+export interface AppendExerciseWithSetsParams {
+  userId: string;
+  date: string;
+  exerciseId: string;
+  sets: AppendSetParams[];
+}
 
 @Injectable()
 export class RoutineService {
@@ -197,5 +211,55 @@ export class RoutineService {
       })),
     };
     return this.create(dto, userId);
+  }
+
+  async appendExerciseWithSetsTx(
+    manager: EntityManager,
+    params: AppendExerciseWithSetsParams,
+  ): Promise<WorkoutRoutine> {
+    let routine = await manager.findOne(WorkoutRoutine, {
+      where: { user: { id: params.userId }, date: params.date },
+      relations: ['exercises'],
+    });
+
+    if (!routine) {
+      routine = manager.create(WorkoutRoutine, {
+        user: { id: params.userId } as any,
+        date: params.date,
+        order: 0,
+      });
+      routine = await manager.save(routine);
+      routine.exercises = [];
+    }
+
+    const order = routine.exercises?.length ?? 0;
+    const we = manager.create(WorkoutExercise, {
+      routine: { id: routine.id } as any,
+      exercise: { id: params.exerciseId } as any,
+      order,
+    });
+    const savedWe = await manager.save(we);
+
+    for (const s of params.sets) {
+      const ws = manager.create(WorkoutSet, {
+        workoutExercise: savedWe,
+        round: s.round,
+        reps: s.reps,
+        weight: s.weight,
+        weightUnit: s.weightUnit,
+      });
+      await manager.save(ws);
+    }
+
+    const full = await manager.findOne(WorkoutRoutine, {
+      where: { id: routine.id },
+      relations: [
+        'exercises',
+        'exercises.exercise',
+        'exercises.exercise.muscleGroups',
+        'exercises.sets',
+      ],
+    });
+    return full ?? routine;
   }
 }
