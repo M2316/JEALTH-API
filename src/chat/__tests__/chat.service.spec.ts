@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ServiceUnavailableException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { ChatService } from '../chat.service';
 import { ExerciseRagService } from '../services/exercise-rag.service';
 import { GeminiService } from '../services/gemini.service';
@@ -7,6 +8,7 @@ import { ExerciseNameResolverService } from '../services/exercise-name-resolver.
 import { MuscleGroupInferenceService } from '../services/muscle-group-inference.service';
 import { WorkoutContextService } from '../services/workout-context.service';
 import { ExerciseService } from '../../workout/exercise.service';
+import { RoutineService } from '../../workout/routine.service';
 
 describe('ChatService', () => {
   let service: ChatService;
@@ -35,6 +37,8 @@ describe('ChatService', () => {
         { provide: MuscleGroupInferenceService, useValue: muscleInfer },
         { provide: WorkoutContextService, useValue: workoutCtx },
         { provide: ExerciseService, useValue: exerciseSvc },
+        { provide: RoutineService, useValue: { appendExerciseWithSetsTx: jest.fn() } },
+        { provide: DataSource, useValue: { transaction: jest.fn() } },
       ],
     }).compile();
     service = module.get(ChatService);

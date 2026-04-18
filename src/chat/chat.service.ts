@@ -1,10 +1,13 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { DataSource, EntityManager, ILike, In } from 'typeorm';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { ChatResponseDto } from './dto/chat-response.dto';
+import { ApproveNewExerciseDto } from './dto/approve-new-exercise.dto';
 import { ExerciseRagService } from './services/exercise-rag.service';
 import { GeminiService } from './services/gemini.service';
 import {
@@ -14,6 +17,9 @@ import {
 import { MuscleGroupInferenceService } from './services/muscle-group-inference.service';
 import { WorkoutContextService } from './services/workout-context.service';
 import { ExerciseService } from '../workout/exercise.service';
+import { RoutineService } from '../workout/routine.service';
+import { Exercise } from '../workout/entities/exercise.entity';
+import { MuscleGroup } from '../workout/entities/muscle-group.entity';
 import {
   buildWorkoutDraftResponseSchema,
   WorkoutDraftZ,
@@ -44,7 +50,51 @@ export class ChatService {
     private readonly muscleInfer: MuscleGroupInferenceService,
     private readonly workoutCtx: WorkoutContextService,
     private readonly exerciseSvc: ExerciseService,
+    private readonly routineService: RoutineService,
+    private readonly dataSource: DataSource,
   ) {}
+
+  async approveNewExercise(dto: ApproveNewExerciseDto, userId: string) {
+    return this.dataSource.transaction(async (manager: EntityManager) => {
+      const exerciseRepo = manager.getRepository(Exercise);
+      const trimmedName = dto.name.trim();
+
+      let exercise = await exerciseRepo.findOne({
+        where: { name: ILike(trimmedName) },
+        relations: ['muscleGroups'],
+      });
+
+      if (!exercise) {
+        const muscleRepo = manager.getRepository(MuscleGroup);
+        const muscleGroups = await muscleRepo.findBy({
+          id: In(dto.muscleGroupIds),
+        });
+        if (muscleGroups.length !== dto.muscleGroupIds.length) {
+          throw new BadRequestException('invalid muscle group id');
+        }
+        const built = manager.create(Exercise, {
+          name: trimmedName,
+          equipment: dto.equipment,
+          muscleGroups,
+          createdBy: { id: userId } as any,
+        });
+        exercise = await exerciseRepo.save(built);
+      }
+
+      const finalExercise = exercise!;
+      const routine = await this.routineService.appendExerciseWithSetsTx(
+        manager,
+        {
+          userId,
+          date: dto.date,
+          exerciseId: finalExercise.id,
+          sets: dto.sets,
+        },
+      );
+
+      return { exercise: finalExercise, routine };
+    });
+  }
 
   async processMessage(
     req: ChatRequestDto,

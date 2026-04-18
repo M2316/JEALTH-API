@@ -8,12 +8,19 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 describe('ChatController (integration)', () => {
   let app: INestApplication;
   const processMock = jest.fn();
+  const approveNewExerciseMock = jest.fn();
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       controllers: [ChatController],
       providers: [
-        { provide: ChatService, useValue: { processMessage: processMock } },
+        {
+          provide: ChatService,
+          useValue: {
+            processMessage: processMock,
+            approveNewExercise: approveNewExerciseMock,
+          },
+        },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -38,6 +45,7 @@ describe('ChatController (integration)', () => {
 
   beforeEach(() => {
     processMock.mockReset();
+    approveNewExerciseMock.mockReset();
   });
 
   it('POST /chat/workout returns processed response', async () => {
@@ -96,6 +104,28 @@ describe('ChatController (integration)', () => {
         messages: [{ role: 'system', content: 'x' }],
       })
       .expect(400);
+  });
+
+  it('POST /chat/workout/approve-new-exercise passes body and user to service', async () => {
+    approveNewExerciseMock.mockResolvedValue({
+      exercise: { id: 'ex' },
+      routine: { id: 'r' },
+    });
+    const body = {
+      date: '2026-04-19',
+      name: '스쿼트',
+      muscleGroupIds: ['11111111-1111-4111-8111-111111111111'],
+      sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }],
+    };
+    const res = await request(app.getHttpServer())
+      .post('/chat/workout/approve-new-exercise')
+      .send(body)
+      .expect(200);
+    expect(res.body).toEqual({
+      exercise: { id: 'ex' },
+      routine: { id: 'r' },
+    });
+    expect(approveNewExerciseMock).toHaveBeenCalledWith(body, 'user-1');
   });
 
   it('GET /chat/health still returns { ok: true }', async () => {
