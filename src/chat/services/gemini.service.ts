@@ -7,6 +7,7 @@ export interface GeminiCallParams {
   contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>;
   responseSchema: object;
   temperature?: number;
+  model?: string;
 }
 
 @Injectable()
@@ -38,7 +39,7 @@ export class GeminiService {
     }, this.timeoutMs);
     try {
       const response = await this.client.models.generateContent({
-        model: this.model,
+        model: params.model ?? this.model,
         contents: params.contents,
         config: {
           systemInstruction: params.systemInstruction,

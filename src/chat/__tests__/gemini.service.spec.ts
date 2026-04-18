@@ -89,4 +89,29 @@ describe('GeminiService', () => {
     const callArg = generateContentMock.mock.calls[0][0];
     expect(callArg.config.temperature).toBe(0.2);
   });
+
+  it('uses default model when no override given', async () => {
+    generateContentMock.mockResolvedValue({ text: '{}' });
+    await service.generateJson({
+      systemInstruction: 's',
+      contents: [],
+      responseSchema: {} as never,
+    });
+    expect(generateContentMock).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gemini-2.5-flash' }),
+    );
+  });
+
+  it('uses override model when provided', async () => {
+    generateContentMock.mockResolvedValue({ text: '{}' });
+    await service.generateJson({
+      systemInstruction: 's',
+      contents: [],
+      responseSchema: {} as never,
+      model: 'pro-override',
+    });
+    expect(generateContentMock).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'pro-override' }),
+    );
+  });
 });
