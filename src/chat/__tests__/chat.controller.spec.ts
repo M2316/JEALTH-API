@@ -17,7 +17,13 @@ describe('ChatController (integration)', () => {
       ],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
+      .useValue({
+        canActivate: (context: any) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { id: 'user-1' };
+          return true;
+        },
+      })
       .compile();
     app = module.createNestApplication();
     app.useGlobalPipes(

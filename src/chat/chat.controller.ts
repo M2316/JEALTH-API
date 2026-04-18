@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -27,7 +28,10 @@ export class ChatController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @Post('workout')
-  async chatWorkout(@Body() dto: ChatRequestDto): Promise<ChatResponseDto> {
-    return this.chatService.processMessage(dto);
+  async chatWorkout(
+    @Body() dto: ChatRequestDto,
+    @Req() req: any,
+  ): Promise<ChatResponseDto> {
+    return this.chatService.processMessage(dto, req.user.id);
   }
 }
