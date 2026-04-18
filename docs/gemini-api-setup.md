@@ -299,3 +299,10 @@ const response = await ai.models.generateContent({
 - [ ] 운영 배포 전: 결제 활성화 + 유저별 throttle 도입
 
 위 항목 모두 체크되면 채팅 엔드포인트(`POST /chat/workout`) 본격 구현으로 진입.
+
+## Pro 모델 (근육 그룹 추론)
+
+신규 운동 생성 branch 에서는 `GEMINI_INFER_MODEL` (기본값 `gemini-3-pro-preview`) 을
+별도로 호출한다. Flash 모델과 같은 API 키를 공유하되, 응답 품질이 중요한 분류 작업에만
+사용하므로 Flash 대비 비용이 약간 높다. 배포 환경에서 유효한 Pro 모델 이름으로 override
+가능.
