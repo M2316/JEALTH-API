@@ -11,7 +11,7 @@ import { StatsService } from './stats.service';
 import { ExerciseController } from './exercise.controller';
 import { RoutineController } from './routine.controller';
 import { StatsController } from './stats.controller';
-import { SeedService } from './seed-muscle-groups';
+import { SeedService } from './seed/seed.service';
 
 @Module({
   imports: [
