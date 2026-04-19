@@ -18,6 +18,8 @@ export interface ChatResponseDto {
     }>;
   };
   suggestedMuscleGroupIds?: string[];
+  suggestedEquipment?: string;
   muscleGroups?: Array<{ id: string; name: string; color?: string }>;
+  originalName?: string;
   candidates?: Array<{ id: string; name: string }>; // 하위호환 유지 (사용 중단 예정)
 }

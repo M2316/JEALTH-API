@@ -20,6 +20,7 @@ export const buildWorkoutDraftResponseSchema = () => ({
             type: Type.OBJECT,
             properties: {
               name: { type: Type.STRING, minLength: '1' },
+              rawName: { type: Type.STRING, minLength: '1' },
               sets: {
                 type: Type.ARRAY,
                 minItems: '1',
@@ -36,8 +37,8 @@ export const buildWorkoutDraftResponseSchema = () => ({
                 },
               },
             },
-            required: ['name', 'sets'],
-            propertyOrdering: ['name', 'sets'],
+            required: ['name', 'rawName', 'sets'],
+            propertyOrdering: ['name', 'rawName', 'sets'],
           },
         },
       },
@@ -57,6 +58,7 @@ const WorkoutSetZ = z.object({
 
 const WorkoutExerciseZ = z.object({
   name: z.string().min(1),
+  rawName: z.string().min(1),
   sets: z.array(WorkoutSetZ).min(1),
 });
 

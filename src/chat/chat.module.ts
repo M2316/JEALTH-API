@@ -10,7 +10,7 @@ import { ChatService } from './chat.service';
 import { ExerciseRagService } from './services/exercise-rag.service';
 import { GeminiService } from './services/gemini.service';
 import { ExerciseNameResolverService } from './services/exercise-name-resolver.service';
-import { MuscleGroupInferenceService } from './services/muscle-group-inference.service';
+import { ExerciseMetaInferenceService } from './services/exercise-meta-inference.service';
 import { WorkoutContextService } from './services/workout-context.service';
 
 @Module({
@@ -25,7 +25,7 @@ import { WorkoutContextService } from './services/workout-context.service';
     ExerciseRagService,
     GeminiService,
     ExerciseNameResolverService,
-    MuscleGroupInferenceService,
+    ExerciseMetaInferenceService,
     WorkoutContextService,
   ],
   exports: [
@@ -33,7 +33,7 @@ import { WorkoutContextService } from './services/workout-context.service';
     ExerciseRagService,
     GeminiService,
     ExerciseNameResolverService,
-    MuscleGroupInferenceService,
+    ExerciseMetaInferenceService,
     WorkoutContextService,
   ],
 })

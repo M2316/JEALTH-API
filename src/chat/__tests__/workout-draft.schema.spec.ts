@@ -13,11 +13,17 @@ describe('workout-draft schema', () => {
       expect(itemProps).toHaveProperty('name');
       expect(itemProps).toHaveProperty('sets');
     });
-    it('requires only name and sets on items', () => {
+    it('requires name, rawName, and sets on items', () => {
       const schema = buildWorkoutDraftResponseSchema();
       const required =
         schema.properties.draft.properties.exercises.items.required;
-      expect([...required].sort()).toEqual(['name', 'sets'].sort());
+      expect([...required].sort()).toEqual(['name', 'rawName', 'sets'].sort());
+    });
+    it('items.required includes rawName', () => {
+      const schema = buildWorkoutDraftResponseSchema();
+      const required =
+        schema.properties.draft.properties.exercises.items.required;
+      expect(required).toContain('rawName');
     });
   });
 
@@ -30,6 +36,7 @@ describe('workout-draft schema', () => {
           exercises: [
             {
               name: '벤치프레스',
+              rawName: '벤치프레스',
               sets: [{ round: 1, reps: 10, weight: 20, weightUnit: 'kg' }],
             },
           ],
@@ -44,7 +51,7 @@ describe('workout-draft schema', () => {
         WorkoutDraftZ.parse({
           reply: 'x', confidence: 'high',
           draft: {
-            exercises: [{ name: 'x', sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'pounds' }] }],
+            exercises: [{ name: 'x', rawName: 'x', sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'pounds' }] }],
           },
         }),
       ).toThrow();
@@ -55,7 +62,7 @@ describe('workout-draft schema', () => {
         WorkoutDraftZ.parse({
           reply: 'x', confidence: 'high',
           draft: {
-            exercises: [{ name: 'x', sets: [{ round: 0, reps: 1, weight: 1, weightUnit: 'kg' }] }],
+            exercises: [{ name: 'x', rawName: 'x', sets: [{ round: 0, reps: 1, weight: 1, weightUnit: 'kg' }] }],
           },
         }),
       ).toThrow();
@@ -65,7 +72,7 @@ describe('workout-draft schema', () => {
       expect(() =>
         WorkoutDraftZ.parse({
           reply: 'x', confidence: 'high',
-          draft: { exercises: [{ name: 'x', sets: [] }] },
+          draft: { exercises: [{ name: 'x', rawName: 'x', sets: [] }] },
         }),
       ).toThrow();
       expect(() =>
@@ -77,10 +84,36 @@ describe('workout-draft schema', () => {
         WorkoutDraftZ.parse({
           reply: 'x', confidence: 'high',
           draft: {
-            exercises: [{ name: '', sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }] }],
+            exercises: [{ name: '', rawName: 'x', sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }] }],
           },
         }),
       ).toThrow();
+    });
+
+    it('rejects missing rawName', () => {
+      expect(() =>
+        WorkoutDraftZ.parse({
+          reply: 'x', confidence: 'high',
+          draft: {
+            exercises: [{ name: 'x', sets: [{ round: 1, reps: 1, weight: 1, weightUnit: 'kg' }] }],
+          },
+        }),
+      ).toThrow();
+    });
+
+    it('accepts rawName differing from name', () => {
+      const result = WorkoutDraftZ.parse({
+        reply: 'x', confidence: 'high',
+        draft: {
+          exercises: [{
+            name: '푸쉬업',
+            rawName: '푸귀업',
+            sets: [{ round: 1, reps: 10, weight: 0, weightUnit: 'kg' }],
+          }],
+        },
+      });
+      expect(result.draft.exercises[0].name).toBe('푸쉬업');
+      expect(result.draft.exercises[0].rawName).toBe('푸귀업');
     });
   });
 });
