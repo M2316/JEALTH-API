@@ -60,4 +60,29 @@ export class ExerciseRagService implements OnModuleInit {
       );
     return rows.map((r) => ({ id: r.id, name: r.name }));
   }
+
+  async findCandidateNames(message: string): Promise<string[]> {
+    const trimmed = message.trim();
+    if (!trimmed) return [];
+
+    const rawTopK = Number(this.config.get('EXERCISE_RAG_TOP_K') ?? 10);
+    const topK = Number.isFinite(rawTopK) && rawTopK > 0 ? rawTopK : 10;
+    const rawMinSim = Number(
+      this.config.get('EXERCISE_RAG_MIN_SIMILARITY') ?? 0.1,
+    );
+    const minSimilarity =
+      Number.isFinite(rawMinSim) && rawMinSim >= 0 && rawMinSim <= 1
+        ? rawMinSim
+        : 0.1;
+
+    const rows: Array<{ name: string }> = await this.repo.manager.query(
+      `SELECT name
+       FROM exercises
+       WHERE similarity(name, $1) >= $3
+       ORDER BY name <-> $1
+       LIMIT $2`,
+      [trimmed, topK, minSimilarity],
+    );
+    return rows.map((r) => r.name);
+  }
 }

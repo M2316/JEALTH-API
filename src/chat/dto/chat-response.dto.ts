@@ -1,6 +1,10 @@
+export type ChatDraftKind = 'existing' | 'new_exercise';
+
 export interface ChatResponseDto {
   reply: string;
   confidence: 'high' | 'low';
+  parseSuccess: boolean;
+  kind: ChatDraftKind;
   draft: {
     exercises: Array<{
       exerciseId: string;
@@ -13,5 +17,7 @@ export interface ChatResponseDto {
       }>;
     }>;
   };
-  candidates?: Array<{ id: string; name: string }>;
+  suggestedMuscleGroupIds?: string[];
+  muscleGroups?: Array<{ id: string; name: string; color?: string }>;
+  candidates?: Array<{ id: string; name: string }>; // 하위호환 유지 (사용 중단 예정)
 }

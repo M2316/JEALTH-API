@@ -57,4 +57,22 @@ describe('ExerciseRagService', () => {
     expect(bindings[1]).toBe(10); // $2 topK
     expect(bindings[2]).toBe(0.1); // $3 minSimilarity
   });
+
+  it('findCandidateNames returns only name strings', async () => {
+    queryMock.mockResolvedValue([
+      { name: '벤치프레스' },
+      { name: '인클라인 벤치프레스' },
+    ]);
+    const result = await service.findCandidateNames('벤치');
+    expect(result).toEqual(['벤치프레스', '인클라인 벤치프레스']);
+    const sql = queryMock.mock.calls[0][0] as string;
+    expect(sql).toMatch(/SELECT\s+name\s+FROM\s+exercises/i);
+    expect(sql).not.toMatch(/\bid\b\s*,/);
+  });
+
+  it('findCandidateNames returns empty array on blank input', async () => {
+    const result = await service.findCandidateNames('   ');
+    expect(result).toEqual([]);
+    expect(queryMock).not.toHaveBeenCalled();
+  });
 });

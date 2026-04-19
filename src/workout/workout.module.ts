@@ -25,5 +25,6 @@ import { SeedService } from './seed-muscle-groups';
   ],
   controllers: [ExerciseController, RoutineController, StatsController],
   providers: [ExerciseService, RoutineService, StatsService, SeedService],
+  exports: [ExerciseService, RoutineService],
 })
 export class WorkoutModule {}
