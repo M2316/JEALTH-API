@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, ILike } from 'typeorm';
 import { Exercise } from './entities/exercise.entity';
 import { MuscleGroup } from './entities/muscle-group.entity';
 import { CreateExerciseDto } from './dto/create-exercise.dto';
 import { UpdateExerciseDto } from './dto/update-exercise.dto';
+import { customSlug, cloneSlug } from './seed/slug.util';
 
 @Injectable()
 export class ExerciseService {
@@ -20,8 +21,13 @@ export class ExerciseService {
       id: In(dto.muscleGroupIds),
     });
     const exercise = this.exerciseRepo.create({
+      slug: customSlug(),
       name: dto.name,
       equipment: dto.equipment,
+      description: dto.description ?? null,
+      category: dto.category ?? null,
+      difficulty: dto.difficulty ?? null,
+      isDefault: false,
       createdBy: { id: userId } as any,
       muscleGroups,
     });
