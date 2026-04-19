@@ -28,15 +28,15 @@ describe('ExerciseNameResolverService', () => {
     expect(queryMock.mock.calls[0][0]).toMatch(/LOWER\(name\)\s*=\s*LOWER/i);
   });
 
-  it('falls back to trgm similarity >= 0.6 when exact miss', async () => {
+  it('falls back to trgm similarity >= 0.4 when exact miss', async () => {
     queryMock
       .mockResolvedValueOnce([]) // exact miss
-      .mockResolvedValueOnce([{ id: 'id-b', name: '스쿼트' }]); // trgm hit
-    const r = await service.resolveName('스콰트');
-    expect(r).toEqual({ kind: 'existing', id: 'id-b', name: '스쿼트' });
+      .mockResolvedValueOnce([{ id: 'id-b', name: '덤벨프레스' }]); // trgm hit
+    const r = await service.resolveName('덜벨프레스');
+    expect(r).toEqual({ kind: 'existing', id: 'id-b', name: '덤벨프레스' });
     const secondSql = queryMock.mock.calls[1][0] as string;
     expect(secondSql).toMatch(/similarity/);
-    expect(queryMock.mock.calls[1][1]).toContain(0.6);
+    expect(queryMock.mock.calls[1][1]).toContain(0.4);
   });
 
   it('returns new kind when both lookups miss', async () => {

@@ -223,6 +223,33 @@ describe('ChatService', () => {
     expect(sys).toMatch(/직전 승인 운동:\s*스쿼트/);
   });
 
+  it('systemInstruction includes domain context and few-shot examples', async () => {
+    gemini.generateJson.mockResolvedValueOnce(
+      JSON.stringify({
+        reply: 'ok',
+        confidence: 'high',
+        draft: {
+          exercises: [{
+            name: '스쿼트', rawName: '스쿼트',
+            sets: [{ round: 1, reps: 10, weight: 100, weightUnit: 'kg' }],
+          }],
+        },
+      }),
+    );
+    resolver.resolveName.mockResolvedValueOnce({
+      kind: 'existing', id: 'ex-1', name: '스쿼트',
+    });
+    await service.processMessage(
+      { date: '2026-04-19', messages: [{ role: 'user', content: '스쿼트 100kg 10개' }] },
+      'user-1',
+    );
+    const sys = gemini.generateJson.mock.calls[0][0].systemInstruction as string;
+    expect(sys).toMatch(/헬스 운동의 종목명/);
+    expect(sys).toMatch(/덤벨프레스/);
+    expect(sys).toMatch(/벤치프레스/);
+    expect(sys).toMatch(/데드리프트/);
+  });
+
   it('retries Flash on parse failure and eventually fails with ServiceUnavailable', async () => {
     gemini.generateJson
       .mockResolvedValueOnce('not json')

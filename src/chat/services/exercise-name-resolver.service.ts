@@ -9,7 +9,7 @@ export type ResolvedExercise =
 
 @Injectable()
 export class ExerciseNameResolverService {
-  private static readonly TRGM_THRESHOLD = 0.6;
+  private static readonly TRGM_THRESHOLD = 0.4;
 
   constructor(
     @InjectRepository(Exercise) private readonly repo: Repository<Exercise>,
