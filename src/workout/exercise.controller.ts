@@ -12,16 +12,17 @@ import {
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { v4 as uuid } from 'uuid';
 import { mkdirSync } from 'fs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ExerciseService } from './exercise.service';
+import { ExerciseService, FindAllFilters } from './exercise.service';
 import { CreateExerciseDto } from './dto/create-exercise.dto';
 import { UpdateExerciseDto } from './dto/update-exercise.dto';
+import { ExerciseCategory } from './enums/exercise-category.enum';
 
 // Ensure upload directory exists
 mkdirSync('./uploads/exercises', { recursive: true });
@@ -34,8 +35,19 @@ export class ExerciseController {
   constructor(private readonly exerciseService: ExerciseService) {}
 
   @Get()
-  findAll(@Query('search') search?: string) {
-    return this.exerciseService.findAll(search);
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'scope', required: false, enum: ['all', 'default', 'mine'] })
+  @ApiQuery({ name: 'category', required: false, enum: ExerciseCategory })
+  @ApiQuery({ name: 'muscleGroup', required: false })
+  findAll(
+    @Req() req: any,
+    @Query('search') search?: string,
+    @Query('scope') scope?: 'all' | 'default' | 'mine',
+    @Query('category') category?: string,
+    @Query('muscleGroup') muscleGroup?: string,
+  ) {
+    const filters: FindAllFilters = { search, scope, category, muscleGroup };
+    return this.exerciseService.findAll(filters, req.user.id);
   }
 
   @Get('muscle-groups')
@@ -53,14 +65,23 @@ export class ExerciseController {
     return this.exerciseService.create(dto, req.user.id);
   }
 
+  @Post(':id/clone')
+  clone(@Param('id') id: string, @Req() req: any) {
+    return this.exerciseService.clone(id, req.user.id);
+  }
+
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateExerciseDto) {
-    return this.exerciseService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateExerciseDto,
+    @Req() req: any,
+  ) {
+    return this.exerciseService.update(id, dto, req.user.id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.exerciseService.remove(id);
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.exerciseService.remove(id, req.user.id);
   }
 
   @Post(':id/image')
@@ -83,8 +104,9 @@ export class ExerciseController {
   uploadImage(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
   ) {
     const imageUrl = `/uploads/exercises/${file.filename}`;
-    return this.exerciseService.updateImageUrl(id, imageUrl);
+    return this.exerciseService.updateImageUrl(id, imageUrl, req.user.id);
   }
 }
