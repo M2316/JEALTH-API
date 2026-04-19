@@ -27,6 +27,13 @@ describe('ExerciseService', () => {
       remove: jest.fn().mockResolvedValue(undefined),
       createQueryBuilder: jest.fn(),
     };
+    const qb: any = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+    exerciseRepo.createQueryBuilder = jest.fn(() => qb);
+    (exerciseRepo as any).__qb = qb;
     muscleRepo = {
       findBy: jest.fn().mockResolvedValue([{ id: 'mg-1', name: 'chest' }]),
     };
@@ -173,6 +180,56 @@ describe('ExerciseService', () => {
       await expect(
         service.updateImageUrl('ex-2', '/img.jpg', 'user-1'),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('findAll filters', () => {
+    it('filters by scope=default → isDefault=true', async () => {
+      await service.findAll({ scope: 'default' } as any, 'user-1');
+      const qb = (exerciseRepo as any).__qb;
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'exercise.isDefault = :isDefault',
+        { isDefault: true },
+      );
+    });
+
+    it('filters by scope=mine → createdBy = user', async () => {
+      await service.findAll({ scope: 'mine' } as any, 'user-1');
+      const qb = (exerciseRepo as any).__qb;
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'exercise.createdById = :userId',
+        { userId: 'user-1' },
+      );
+    });
+
+    it('filters by category', async () => {
+      await service.findAll({ category: 'compound' } as any, 'user-1');
+      const qb = (exerciseRepo as any).__qb;
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'exercise.category = :category',
+        { category: 'compound' },
+      );
+    });
+
+    it('filters by muscleGroup id', async () => {
+      await service.findAll(
+        { muscleGroup: 'mg-1' } as any,
+        'user-1',
+      );
+      const qb = (exerciseRepo as any).__qb;
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'mg.id = :muscleGroupId',
+        { muscleGroupId: 'mg-1' },
+      );
+    });
+
+    it('search (ILIKE) filter still works', async () => {
+      await service.findAll({ search: '벤치' } as any, 'user-1');
+      const qb = (exerciseRepo as any).__qb;
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'exercise.name ILIKE :search',
+        { search: '%벤치%' },
+      );
     });
   });
 });

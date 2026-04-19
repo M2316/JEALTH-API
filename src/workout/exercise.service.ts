@@ -4,12 +4,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, ILike } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Exercise } from './entities/exercise.entity';
 import { MuscleGroup } from './entities/muscle-group.entity';
 import { CreateExerciseDto } from './dto/create-exercise.dto';
 import { UpdateExerciseDto } from './dto/update-exercise.dto';
 import { customSlug, cloneSlug } from './seed/slug.util';
+
+export type FindAllFilters = {
+  search?: string;
+  scope?: 'all' | 'default' | 'mine';
+  category?: string;
+  muscleGroup?: string;
+};
 
 @Injectable()
 export class ExerciseService {
@@ -38,11 +45,34 @@ export class ExerciseService {
     return this.exerciseRepo.save(exercise);
   }
 
-  findAll(search?: string): Promise<Exercise[]> {
-    return this.exerciseRepo.find({
-      relations: ['muscleGroups'],
-      ...(search ? { where: { name: ILike(`%${search}%`) } } : {}),
-    });
+  async findAll(filters: FindAllFilters, userId: string): Promise<Exercise[]> {
+    const qb = this.exerciseRepo
+      .createQueryBuilder('exercise')
+      .leftJoinAndSelect('exercise.muscleGroups', 'mg')
+      .leftJoinAndSelect('exercise.createdBy', 'creator');
+
+    if (filters.search) {
+      qb.andWhere('exercise.name ILIKE :search', {
+        search: `%${filters.search}%`,
+      });
+    }
+    if (filters.scope === 'default') {
+      qb.andWhere('exercise.isDefault = :isDefault', { isDefault: true });
+    } else if (filters.scope === 'mine') {
+      qb.andWhere('exercise.createdById = :userId', { userId });
+    }
+    if (filters.category) {
+      qb.andWhere('exercise.category = :category', {
+        category: filters.category,
+      });
+    }
+    if (filters.muscleGroup) {
+      qb.andWhere('mg.id = :muscleGroupId', {
+        muscleGroupId: filters.muscleGroup,
+      });
+    }
+
+    return qb.getMany();
   }
 
   async findOne(id: string): Promise<Exercise> {
