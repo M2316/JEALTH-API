@@ -123,6 +123,23 @@ export class ExerciseService {
     await this.exerciseRepo.remove(exercise);
   }
 
+  async clone(id: string, userId: string): Promise<Exercise> {
+    const origin = await this.findOne(id);
+    const copy = this.exerciseRepo.create({
+      slug: cloneSlug(origin.slug),
+      name: origin.name,
+      equipment: origin.equipment,
+      description: origin.description,
+      category: origin.category,
+      difficulty: origin.difficulty,
+      isDefault: false,
+      imageUrl: null as any,
+      createdBy: { id: userId } as any,
+      muscleGroups: origin.muscleGroups,
+    });
+    return this.exerciseRepo.save(copy);
+  }
+
   async updateImageUrl(
     id: string,
     imageUrl: string,

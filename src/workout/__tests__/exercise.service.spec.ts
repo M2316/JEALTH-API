@@ -232,4 +232,29 @@ describe('ExerciseService', () => {
       );
     });
   });
+
+  describe('clone', () => {
+    it('creates a copy owned by caller with -copy- slug', async () => {
+      exerciseRepo.findOne.mockResolvedValue({
+        id: 'ex-seed',
+        slug: 'bench-press',
+        name: '벤치프레스',
+        equipment: '바벨',
+        description: '...',
+        category: ExerciseCategory.Compound,
+        difficulty: ExerciseDifficulty.Intermediate,
+        isDefault: true,
+        createdBy: null,
+        imageUrl: '/img.jpg',
+        muscleGroups: [{ id: 'mg-1' }],
+      });
+      const clone = await service.clone('ex-seed', 'user-1');
+      expect(clone.slug).toMatch(/^bench-press-copy-[a-f0-9]{8}$/);
+      expect(clone.isDefault).toBe(false);
+      expect(clone.createdBy).toEqual({ id: 'user-1' });
+      expect(clone.imageUrl).toBeNull();
+      expect(clone.name).toBe('벤치프레스');
+      expect(clone.muscleGroups).toEqual([{ id: 'mg-1' }]);
+    });
+  });
 });
