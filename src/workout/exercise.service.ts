@@ -93,8 +93,13 @@ export class ExerciseService {
     await this.exerciseRepo.remove(exercise);
   }
 
-  async updateImageUrl(id: string, imageUrl: string): Promise<Exercise> {
+  async updateImageUrl(
+    id: string,
+    imageUrl: string,
+    userId: string,
+  ): Promise<Exercise> {
     const exercise = await this.findOne(id);
+    this.assertWritable(exercise, userId);
     exercise.imageUrl = imageUrl;
     return this.exerciseRepo.save(exercise);
   }

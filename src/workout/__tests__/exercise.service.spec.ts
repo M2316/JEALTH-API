@@ -149,4 +149,30 @@ describe('ExerciseService', () => {
       expect(row.name).toBe('이후');
     });
   });
+
+  describe('updateImageUrl guards', () => {
+    it('rejects default exercise', async () => {
+      exerciseRepo.findOne.mockResolvedValue({
+        id: 'ex-1',
+        isDefault: true,
+        createdBy: null,
+        muscleGroups: [],
+      });
+      await expect(
+        service.updateImageUrl('ex-1', '/img.jpg', 'user-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('rejects exercise owned by another user', async () => {
+      exerciseRepo.findOne.mockResolvedValue({
+        id: 'ex-2',
+        isDefault: false,
+        createdBy: { id: 'user-X' },
+        muscleGroups: [],
+      });
+      await expect(
+        service.updateImageUrl('ex-2', '/img.jpg', 'user-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
 });
