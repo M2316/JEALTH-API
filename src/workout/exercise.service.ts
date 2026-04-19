@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, ILike } from 'typeorm';
 import { Exercise } from './entities/exercise.entity';
@@ -44,7 +48,7 @@ export class ExerciseService {
   async findOne(id: string): Promise<Exercise> {
     const exercise = await this.exerciseRepo.findOne({
       where: { id },
-      relations: ['muscleGroups'],
+      relations: ['muscleGroups', 'createdBy'],
     });
     if (!exercise) throw new NotFoundException('Exercise not found');
     return exercise;
@@ -54,10 +58,27 @@ export class ExerciseService {
     return this.muscleGroupRepo.find();
   }
 
-  async update(id: string, dto: UpdateExerciseDto): Promise<Exercise> {
+  private assertWritable(exercise: Exercise, userId: string): void {
+    if (exercise.isDefault) {
+      throw new ForbiddenException('기본 운동은 수정/삭제할 수 없습니다.');
+    }
+    if (!exercise.createdBy || exercise.createdBy.id !== userId) {
+      throw new ForbiddenException('본인이 생성한 운동만 수정/삭제할 수 있습니다.');
+    }
+  }
+
+  async update(
+    id: string,
+    dto: UpdateExerciseDto,
+    userId: string,
+  ): Promise<Exercise> {
     const exercise = await this.findOne(id);
+    this.assertWritable(exercise, userId);
     if (dto.name !== undefined) exercise.name = dto.name;
     if (dto.equipment !== undefined) exercise.equipment = dto.equipment;
+    if (dto.description !== undefined) exercise.description = dto.description;
+    if (dto.category !== undefined) exercise.category = dto.category;
+    if (dto.difficulty !== undefined) exercise.difficulty = dto.difficulty;
     if (dto.muscleGroupIds) {
       exercise.muscleGroups = await this.muscleGroupRepo.findBy({
         id: In(dto.muscleGroupIds),
@@ -66,8 +87,9 @@ export class ExerciseService {
     return this.exerciseRepo.save(exercise);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId: string): Promise<void> {
     const exercise = await this.findOne(id);
+    this.assertWritable(exercise, userId);
     await this.exerciseRepo.remove(exercise);
   }
 

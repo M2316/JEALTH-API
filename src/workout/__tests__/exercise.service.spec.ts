@@ -85,4 +85,68 @@ describe('ExerciseService', () => {
       expect(savedRows[0].difficulty).toBe(ExerciseDifficulty.Beginner);
     });
   });
+
+  describe('update/remove guards', () => {
+    it('update rejects default exercise with 403', async () => {
+      exerciseRepo.findOne.mockResolvedValue({
+        id: 'ex-1',
+        isDefault: true,
+        createdBy: null,
+        muscleGroups: [],
+      });
+      await expect(
+        service.update('ex-1', { name: '변경시도' } as any, 'user-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('update rejects exercise owned by another user with 403', async () => {
+      exerciseRepo.findOne.mockResolvedValue({
+        id: 'ex-2',
+        isDefault: false,
+        createdBy: { id: 'user-X' },
+        muscleGroups: [],
+      });
+      await expect(
+        service.update('ex-2', { name: '해킹' } as any, 'user-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('remove rejects default exercise with 403', async () => {
+      exerciseRepo.findOne.mockResolvedValue({
+        id: 'ex-1',
+        isDefault: true,
+        createdBy: null,
+        muscleGroups: [],
+      });
+      await expect(service.remove('ex-1', 'user-1')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('remove rejects exercise owned by another user with 403', async () => {
+      exerciseRepo.findOne.mockResolvedValue({
+        id: 'ex-2',
+        isDefault: false,
+        createdBy: { id: 'user-X' },
+        muscleGroups: [],
+      });
+      await expect(service.remove('ex-2', 'user-1')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('update succeeds for own custom exercise', async () => {
+      const row = {
+        id: 'ex-3',
+        isDefault: false,
+        createdBy: { id: 'user-1' },
+        muscleGroups: [],
+        name: '이전',
+        equipment: null,
+      };
+      exerciseRepo.findOne.mockResolvedValue(row);
+      await service.update('ex-3', { name: '이후' } as any, 'user-1');
+      expect(row.name).toBe('이후');
+    });
+  });
 });
