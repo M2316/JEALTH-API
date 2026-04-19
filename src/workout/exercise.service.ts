@@ -9,12 +9,13 @@ import { Exercise } from './entities/exercise.entity';
 import { MuscleGroup } from './entities/muscle-group.entity';
 import { CreateExerciseDto } from './dto/create-exercise.dto';
 import { UpdateExerciseDto } from './dto/update-exercise.dto';
+import { ExerciseCategory } from './enums/exercise-category.enum';
 import { customSlug, cloneSlug } from './seed/slug.util';
 
 export type FindAllFilters = {
   search?: string;
   scope?: 'all' | 'default' | 'mine';
-  category?: string;
+  category?: ExerciseCategory;
   muscleGroup?: string;
 };
 
@@ -133,7 +134,7 @@ export class ExerciseService {
       category: origin.category,
       difficulty: origin.difficulty,
       isDefault: false,
-      imageUrl: null as any,
+      imageUrl: null,
       createdBy: { id: userId } as any,
       muscleGroups: origin.muscleGroups,
     });

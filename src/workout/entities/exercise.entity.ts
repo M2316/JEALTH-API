@@ -27,8 +27,8 @@ export class Exercise {
   @Column({ nullable: true })
   equipment: string;
 
-  @Column({ nullable: true })
-  imageUrl: string;
+  @Column({ type: 'varchar', nullable: true })
+  imageUrl: string | null;
 
   @Column({ type: 'text', nullable: true })
   description: string | null;

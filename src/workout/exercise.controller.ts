@@ -11,6 +11,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -43,7 +44,8 @@ export class ExerciseController {
     @Req() req: any,
     @Query('search') search?: string,
     @Query('scope') scope?: 'all' | 'default' | 'mine',
-    @Query('category') category?: string,
+    @Query('category', new ParseEnumPipe(ExerciseCategory, { optional: true }))
+    category?: ExerciseCategory,
     @Query('muscleGroup') muscleGroup?: string,
   ) {
     const filters: FindAllFilters = { search, scope, category, muscleGroup };
