@@ -5,7 +5,7 @@ import { ChatService } from '../chat.service';
 import { ExerciseRagService } from '../services/exercise-rag.service';
 import { GeminiService } from '../services/gemini.service';
 import { ExerciseNameResolverService } from '../services/exercise-name-resolver.service';
-import { MuscleGroupInferenceService } from '../services/muscle-group-inference.service';
+import { ExerciseMetaInferenceService } from '../services/exercise-meta-inference.service';
 import { WorkoutContextService } from '../services/workout-context.service';
 import { ExerciseService } from '../../workout/exercise.service';
 import { RoutineService } from '../../workout/routine.service';
@@ -15,7 +15,7 @@ describe('ChatService', () => {
   let rag: { findCandidateNames: jest.Mock };
   let gemini: { generateJson: jest.Mock };
   let resolver: { resolveName: jest.Mock };
-  let muscleInfer: { inferMuscleGroups: jest.Mock };
+  let metaInfer: { inferNewExerciseMeta: jest.Mock };
   let workoutCtx: { getLastApprovedExerciseName: jest.Mock };
   let exerciseSvc: { findAllMuscleGroups: jest.Mock };
 
@@ -23,7 +23,7 @@ describe('ChatService', () => {
     rag = { findCandidateNames: jest.fn().mockResolvedValue([]) };
     gemini = { generateJson: jest.fn() };
     resolver = { resolveName: jest.fn() };
-    muscleInfer = { inferMuscleGroups: jest.fn() };
+    metaInfer = { inferNewExerciseMeta: jest.fn() };
     workoutCtx = {
       getLastApprovedExerciseName: jest.fn().mockResolvedValue(null),
     };
@@ -34,7 +34,7 @@ describe('ChatService', () => {
         { provide: ExerciseRagService, useValue: rag },
         { provide: GeminiService, useValue: gemini },
         { provide: ExerciseNameResolverService, useValue: resolver },
-        { provide: MuscleGroupInferenceService, useValue: muscleInfer },
+        { provide: ExerciseMetaInferenceService, useValue: metaInfer },
         { provide: WorkoutContextService, useValue: workoutCtx },
         { provide: ExerciseService, useValue: exerciseSvc },
         { provide: RoutineService, useValue: { appendExerciseWithSetsTx: jest.fn() } },
@@ -52,6 +52,7 @@ describe('ChatService', () => {
         exercises: [
           {
             name,
+            rawName: name,
             sets: [{ round: 1, reps: 10, weight: 100, weightUnit: 'kg' }],
           },
         ],
@@ -73,7 +74,7 @@ describe('ChatService', () => {
     expect(r.parseSuccess).toBe(true);
     expect(r.draft.exercises[0].exerciseId).toBe('ex-1');
     expect(r.draft.exercises[0].name).toBe('스쿼트');
-    expect(muscleInfer.inferMuscleGroups).not.toHaveBeenCalled();
+    expect(metaInfer.inferNewExerciseMeta).not.toHaveBeenCalled();
   });
 
   it('new-exercise branch: calls Pro inference and returns suggestedMuscleGroupIds', async () => {
@@ -81,7 +82,9 @@ describe('ChatService', () => {
     resolver.resolveName.mockResolvedValueOnce({
       kind: 'new', name: '스쿼트',
     });
-    muscleInfer.inferMuscleGroups.mockResolvedValueOnce(['mg-leg', 'mg-quad']);
+    metaInfer.inferNewExerciseMeta.mockResolvedValueOnce({
+      muscleGroupIds: ['mg-leg', 'mg-quad'],
+    });
     exerciseSvc.findAllMuscleGroups.mockResolvedValueOnce([
       { id: 'mg-leg', name: '하체' },
       { id: 'mg-quad', name: '대퇴사두' },
@@ -96,6 +99,66 @@ describe('ChatService', () => {
     expect(r.muscleGroups).toHaveLength(3);
   });
 
+  it('sets originalName when rawName differs from name (new branch)', async () => {
+    gemini.generateJson.mockResolvedValueOnce(
+      JSON.stringify({
+        reply: '푸쉬업 1세트 0kg 100개 맞나요?',
+        confidence: 'high',
+        draft: {
+          exercises: [{
+            name: '푸쉬업',
+            rawName: '푸귀업',
+            sets: [{ round: 1, reps: 100, weight: 0, weightUnit: 'kg' }],
+          }],
+        },
+      }),
+    );
+    resolver.resolveName.mockResolvedValueOnce({ kind: 'new', name: '푸쉬업' });
+    metaInfer.inferNewExerciseMeta.mockResolvedValueOnce({
+      muscleGroupIds: ['mg-chest'],
+      equipment: '맨몸',
+    });
+    exerciseSvc.findAllMuscleGroups.mockResolvedValueOnce([
+      { id: 'mg-chest', name: '가슴' },
+    ]);
+    const r = await service.processMessage(
+      { date: '2026-04-19', messages: [{ role: 'user', content: '푸귀업 100개 0키로' }] },
+      'user-1',
+    );
+    expect(r.kind).toBe('new_exercise');
+    expect(r.originalName).toBe('푸귀업');
+    expect(r.suggestedEquipment).toBe('맨몸');
+    expect(r.suggestedMuscleGroupIds).toEqual(['mg-chest']);
+  });
+
+  it('omits originalName when rawName equals name', async () => {
+    gemini.generateJson.mockResolvedValueOnce(
+      JSON.stringify({
+        reply: '스쿼트 맞나요?',
+        confidence: 'high',
+        draft: {
+          exercises: [{
+            name: '스쿼트',
+            rawName: '스쿼트',
+            sets: [{ round: 1, reps: 10, weight: 100, weightUnit: 'kg' }],
+          }],
+        },
+      }),
+    );
+    resolver.resolveName.mockResolvedValueOnce({ kind: 'new', name: '스쿼트' });
+    metaInfer.inferNewExerciseMeta.mockResolvedValueOnce({
+      muscleGroupIds: ['mg-leg'],
+    });
+    exerciseSvc.findAllMuscleGroups.mockResolvedValueOnce([
+      { id: 'mg-leg', name: '하체' },
+    ]);
+    const r = await service.processMessage(
+      { date: '2026-04-19', messages: [{ role: 'user', content: '스쿼트 100kg 10개' }] },
+      'user-1',
+    );
+    expect(r.originalName).toBeUndefined();
+  });
+
   it('low confidence: returns kind=existing, parseSuccess=false, no draft exercises', async () => {
     gemini.generateJson.mockResolvedValueOnce(
       JSON.stringify({
@@ -105,6 +168,7 @@ describe('ChatService', () => {
           exercises: [
             {
               name: '알 수 없음',
+              rawName: '알 수 없음',
               sets: [{ round: 1, reps: 0, weight: 0, weightUnit: 'kg' }],
             },
           ],
@@ -129,8 +193,8 @@ describe('ChatService', () => {
         confidence: 'high',
         draft: {
           exercises: [
-            { name: '스쿼트', sets: [{ round: 1, reps: 10, weight: 100, weightUnit: 'kg' }] },
-            { name: '벤치프레스', sets: [{ round: 1, reps: 8, weight: 80, weightUnit: 'kg' }] },
+            { name: '스쿼트', rawName: '스쿼트', sets: [{ round: 1, reps: 10, weight: 100, weightUnit: 'kg' }] },
+            { name: '벤치프레스', rawName: '벤치프레스', sets: [{ round: 1, reps: 8, weight: 80, weightUnit: 'kg' }] },
           ],
         },
       }),
@@ -142,7 +206,7 @@ describe('ChatService', () => {
     expect(r.kind).toBe('existing');
     expect(r.parseSuccess).toBe(false);
     expect(r.reply).toMatch(/한\s*번에\s*하나씩/);
-    expect(muscleInfer.inferMuscleGroups).not.toHaveBeenCalled();
+    expect(metaInfer.inferNewExerciseMeta).not.toHaveBeenCalled();
   });
 
   it('injects RAG candidate names and lastApprovedName into systemInstruction', async () => {

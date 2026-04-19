@@ -5,7 +5,7 @@ import { ChatService } from '../chat.service';
 import { ExerciseRagService } from '../services/exercise-rag.service';
 import { GeminiService } from '../services/gemini.service';
 import { ExerciseNameResolverService } from '../services/exercise-name-resolver.service';
-import { MuscleGroupInferenceService } from '../services/muscle-group-inference.service';
+import { ExerciseMetaInferenceService } from '../services/exercise-meta-inference.service';
 import { WorkoutContextService } from '../services/workout-context.service';
 import { ExerciseService } from '../../workout/exercise.service';
 import { RoutineService } from '../../workout/routine.service';
@@ -48,7 +48,7 @@ describe('ChatService.approveNewExercise', () => {
         { provide: ExerciseRagService, useValue: { findCandidateNames: jest.fn() } },
         { provide: GeminiService, useValue: { generateJson: jest.fn() } },
         { provide: ExerciseNameResolverService, useValue: { resolveName: jest.fn() } },
-        { provide: MuscleGroupInferenceService, useValue: { inferMuscleGroups: jest.fn() } },
+        { provide: ExerciseMetaInferenceService, useValue: { inferNewExerciseMeta: jest.fn() } },
         { provide: WorkoutContextService, useValue: { getLastApprovedExerciseName: jest.fn() } },
         { provide: ExerciseService, useValue: { findAllMuscleGroups: jest.fn() } },
         { provide: RoutineService, useValue: routineService },

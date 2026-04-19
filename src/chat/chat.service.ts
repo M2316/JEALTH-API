@@ -14,7 +14,7 @@ import {
   ExerciseNameResolverService,
   ResolvedExercise,
 } from './services/exercise-name-resolver.service';
-import { MuscleGroupInferenceService } from './services/muscle-group-inference.service';
+import { ExerciseMetaInferenceService } from './services/exercise-meta-inference.service';
 import { WorkoutContextService } from './services/workout-context.service';
 import { ExerciseService } from '../workout/exercise.service';
 import { RoutineService } from '../workout/routine.service';
@@ -31,13 +31,16 @@ const BASE_SYSTEM_PROMPT = `너는 Jealth 운동 기록 어시스턴트다.
 
 규칙:
 1. 제공된 Exercise 후보 이름 목록을 힌트로 사용한다. 사용자가 입력한 운동명이 후보 중 하나와 같거나 오타/별칭이면 후보의 정식 이름으로 정규화해 name 에 반환하라.
-2. 후보에 매칭이 없다고 판단되면, 사용자가 입력한 이름을 그대로 name 에 반환해도 된다 (서버가 신규 운동으로 처리).
-3. 세트·reps·weight 는 사용자 메시지에 명시된 숫자를 그대로. 추측 금지.
-4. weightUnit 은 사용자가 'lbs' 를 명시하지 않으면 'kg'.
-5. reply 는 "X 종목 Y세트 맞나요?" 같은 짧은 컨펌 한국어.
-6. 사용자 메시지에 운동명이 없고 '직전 승인 운동' 힌트가 제공되면, 그 운동명을 name 에 그대로 사용하라.
-7. 운동 외 질문이거나 파싱이 불가능하면 name='알 수 없음', confidence='low', reply 로 안내 ("운동 기록만 도와드려요" 또는 "어떤 운동인지 모르겠어요. 다시 말씀해주세요.").
-8. 숫자·단위 해석이 모호하면 confidence='low'.`;
+2. name: 정규화·보정된 공식 운동명 (오타/별칭은 정식 이름으로).
+   rawName: 사용자가 메시지에 입력한 운동명 단어를 그대로 (오타/별칭 유지).
+   둘 다 반드시 반환. 매칭되는 후보가 없어 보정하지 않은 경우엔 name === rawName 로 동일하게 채움.
+3. 후보에 매칭이 없다고 판단되면, 사용자가 입력한 이름을 그대로 name 에 반환해도 된다 (서버가 신규 운동으로 처리).
+4. 세트·reps·weight 는 사용자 메시지에 명시된 숫자를 그대로. 추측 금지.
+5. weightUnit 은 사용자가 'lbs' 를 명시하지 않으면 'kg'.
+6. reply 는 "X 종목 Y세트 맞나요?" 같은 짧은 컨펌 한국어.
+7. 사용자 메시지에 운동명이 없고 '직전 승인 운동' 힌트가 제공되면, 그 운동명을 name 에 그대로 사용하라.
+8. 운동 외 질문이거나 파싱이 불가능하면 name='알 수 없음', confidence='low', reply 로 안내 ("운동 기록만 도와드려요" 또는 "어떤 운동인지 모르겠어요. 다시 말씀해주세요.").
+9. 숫자·단위 해석이 모호하면 confidence='low'.`;
 
 @Injectable()
 export class ChatService {
@@ -47,7 +50,7 @@ export class ChatService {
     private readonly rag: ExerciseRagService,
     private readonly gemini: GeminiService,
     private readonly resolver: ExerciseNameResolverService,
-    private readonly muscleInfer: MuscleGroupInferenceService,
+    private readonly metaInfer: ExerciseMetaInferenceService,
     private readonly workoutCtx: WorkoutContextService,
     private readonly exerciseSvc: ExerciseService,
     private readonly routineService: RoutineService,
@@ -166,14 +169,21 @@ export class ChatService {
     }
 
     const newEntry = resolved[0] as { kind: 'new'; name: string };
+    const rawEntry = draft.draft.exercises[0];
     const startedAt = Date.now();
-    const [suggestedMuscleGroupIds, allMuscleGroups] = await Promise.all([
-      this.muscleInfer.inferMuscleGroups(newEntry.name),
+    const [meta, allMuscleGroups] = await Promise.all([
+      this.metaInfer.inferNewExerciseMeta(newEntry.name),
       this.exerciseSvc.findAllMuscleGroups(),
     ]);
+    const originalName =
+      rawEntry.rawName && rawEntry.rawName !== newEntry.name
+        ? rawEntry.rawName
+        : undefined;
+
     this.logger.log(
       `new-exercise branch: userId=${userId} name=${newEntry.name} ` +
-        `proMs=${Date.now() - startedAt} suggested=${suggestedMuscleGroupIds.length}`,
+        `proMs=${Date.now() - startedAt} suggested=${meta.muscleGroupIds.length} ` +
+        `equipment=${meta.equipment ?? 'none'} original=${originalName ?? 'none'}`,
     );
 
     return {
@@ -186,15 +196,17 @@ export class ChatService {
           {
             exerciseId: '',
             name: newEntry.name,
-            sets: draft.draft.exercises[0].sets,
+            sets: rawEntry.sets,
           },
         ],
       },
-      suggestedMuscleGroupIds,
+      suggestedMuscleGroupIds: meta.muscleGroupIds,
+      suggestedEquipment: meta.equipment,
       muscleGroups: allMuscleGroups.map((g: { id: string; name: string }) => ({
         id: g.id,
         name: g.name,
       })),
+      ...(originalName ? { originalName } : {}),
     };
   }
 
