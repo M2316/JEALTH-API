@@ -114,6 +114,12 @@ describe('WorkoutParserService', () => {
       expect(r!.sets).toHaveLength(4);
       expect(r!.sets[0].weight).toBe(0);
     });
+
+    it('세트 수가 MAX_ROUNDS 초과면 양보(null)', async () => {
+      const r = await service.tryParse('스쿼트 80 5 30세트', null);
+      expect(r).toBeNull();
+      expect(resolver.resolveName).not.toHaveBeenCalled();
+    });
   });
 
   describe('lastApprovedName 결합', () => {

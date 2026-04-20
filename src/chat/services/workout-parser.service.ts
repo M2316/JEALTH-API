@@ -48,9 +48,9 @@ export class WorkoutParserService {
     const weight = Number(m.groups.weight);
     const reps = Number(m.groups.reps);
     const weightUnit = LBS_SET.has(m.groups.wunit ?? '') ? 'lbs' : 'kg';
-    const rounds = m.groups.rounds
-      ? Math.min(MAX_ROUNDS, Number(m.groups.rounds))
-      : 1;
+    const rawRounds = m.groups.rounds ? Number(m.groups.rounds) : 1;
+    if (rawRounds < 1 || rawRounds > MAX_ROUNDS) return null;
+    const rounds = rawRounds;
 
     const nameForResolve =
       rawName && rawName.length > 0 ? rawName : lastApprovedName;
