@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RoutineService } from './routine.service';
 import { CreateRoutineDto } from './dto/create-routine.dto';
 import { UpdateRoutineDto } from './dto/update-routine.dto';
+import { ReorderDto } from './dto/reorder.dto';
 
 @ApiTags('Routines')
 @ApiBearerAuth()
@@ -59,5 +60,14 @@ export class RoutineController {
     @Req() req: any,
   ) {
     return this.routineService.copyRoutine(id, body.date, req.user.id);
+  }
+
+  @Patch(':id/exercises/reorder')
+  reorderExercises(
+    @Param('id') id: string,
+    @Body() dto: ReorderDto,
+    @Req() req: any,
+  ) {
+    return this.routineService.reorderExercises(id, req.user.id, dto.orderedIds);
   }
 }
