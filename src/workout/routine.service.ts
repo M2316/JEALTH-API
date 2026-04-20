@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { WorkoutRoutine } from './entities/workout-routine.entity';
@@ -211,6 +211,76 @@ export class RoutineService {
       })),
     };
     return this.create(dto, userId);
+  }
+
+  async reorderExercises(
+    routineId: string,
+    userId: string,
+    orderedIds: string[],
+  ): Promise<WorkoutRoutine> {
+    const routine = await this.routineRepo.findOne({
+      where: { id: routineId, user: { id: userId } },
+      relations: ['exercises'],
+    });
+    if (!routine) throw new NotFoundException('Routine not found');
+
+    const currentIds = routine.exercises.map((e) => e.id);
+    this.assertSameSet(currentIds, orderedIds, 'exercises');
+
+    await this.dataSource.transaction(async (manager) => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await manager.save(WorkoutExercise, { id: orderedIds[i], order: i });
+      }
+    });
+
+    return this.findOneInternal(routineId);
+  }
+
+  async reorderSets(
+    routineId: string,
+    exerciseId: string,
+    userId: string,
+    orderedIds: string[],
+  ): Promise<WorkoutRoutine> {
+    const routine = await this.routineRepo.findOne({
+      where: { id: routineId, user: { id: userId } },
+      relations: ['exercises', 'exercises.sets'],
+    });
+    if (!routine) throw new NotFoundException('Routine not found');
+
+    const we = routine.exercises.find((e) => e.id === exerciseId);
+    if (!we) throw new NotFoundException('Exercise not found in routine');
+
+    const currentIds = we.sets.map((s) => s.id);
+    this.assertSameSet(currentIds, orderedIds, 'sets');
+
+    await this.dataSource.transaction(async (manager) => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await manager.save(WorkoutSet, { id: orderedIds[i], round: i + 1 });
+      }
+    });
+
+    return this.findOneInternal(routineId);
+  }
+
+  private assertSameSet(current: string[], incoming: string[], label: string) {
+    if (incoming.length !== current.length) {
+      throw new BadRequestException(
+        `${label} orderedIds length mismatch (expected ${current.length}, got ${incoming.length})`,
+      );
+    }
+    const uniq = new Set(incoming);
+    if (uniq.size !== incoming.length) {
+      throw new BadRequestException(`${label} orderedIds contains duplicates`);
+    }
+    const currentSet = new Set(current);
+    for (const id of incoming) {
+      if (!currentSet.has(id)) {
+        throw new BadRequestException(
+          `${label} orderedIds contains unknown id: ${id}`,
+        );
+      }
+    }
   }
 
   async appendExerciseWithSetsTx(
