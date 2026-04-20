@@ -16,10 +16,15 @@ export interface ParsedWorkout {
 }
 
 // {name} {weight}(kg|키로|킬로|lbs|파운드)? {reps}(개|회|rep|reps)?
-const SINGLE_SET_RE =
-  /^(?<name>.+?)\s+(?<weight>\d+(?:\.\d+)?)\s*(?<wunit>kg|키로|킬로|lbs|파운드)?\s+(?<reps>\d+)\s*(?:개|회|rep|reps)?$/;
+const KG_UNITS = ['kg', '키로', '킬로'] as const;
+const LBS_UNITS = ['lbs', '파운드'] as const;
+const WUNIT_ALT = [...KG_UNITS, ...LBS_UNITS].join('|');
+// name is lazy but safe: \d+ anchors force weight/reps to be numeric so the name can't absorb them.
+const SINGLE_SET_RE = new RegExp(
+  `^(?<name>.+?)\\s+(?<weight>\\d+(?:\\.\\d+)?)\\s*(?<wunit>${WUNIT_ALT})?\\s+(?<reps>\\d+)\\s*(?:개|회|rep|reps)?$`,
+);
 
-const LBS_SET = new Set(['lbs', '파운드']);
+const LBS_SET: Set<string> = new Set(LBS_UNITS);
 
 @Injectable()
 export class WorkoutParserService {
