@@ -15,16 +15,20 @@ export interface ParsedWorkout {
   reply: string;
 }
 
-// {name} {weight}(kg|키로|킬로|lbs|파운드)? {reps}(개|회|rep|reps)?
 const KG_UNITS = ['kg', '키로', '킬로'] as const;
 const LBS_UNITS = ['lbs', '파운드'] as const;
 const WUNIT_ALT = [...KG_UNITS, ...LBS_UNITS].join('|');
-// name is lazy but safe: \d+ anchors force weight/reps to be numeric so the name can't absorb them.
-const SINGLE_SET_RE = new RegExp(
-  `^(?<name>.+?)\\s+(?<weight>\\d+(?:\\.\\d+)?)\\s*(?<wunit>${WUNIT_ALT})?\\s+(?<reps>\\d+)\\s*(?:개|회|rep|reps)?$`,
+
+// name is optional (for lastApprovedName fallback). It must start with a
+// non-digit so "80 5" (no name) can't have the lazy capture eat the first
+// digit. \d+ numeric anchors force weight/reps to remain numeric.
+const FULL_RE = new RegExp(
+  `^(?<name>\\D.*?)?\\s*(?<weight>\\d+(?:\\.\\d+)?)\\s*(?<wunit>${WUNIT_ALT})?\\s+(?<reps>\\d+)\\s*(?:개|회|rep|reps)?(?:\\s+(?<rounds>\\d+)\\s*세트)?$`,
 );
 
 const LBS_SET: Set<string> = new Set(LBS_UNITS);
+
+const MAX_ROUNDS = 20;
 
 @Injectable()
 export class WorkoutParserService {
@@ -32,31 +36,39 @@ export class WorkoutParserService {
 
   async tryParse(
     userText: string,
-    _lastApprovedName: string | null,
+    lastApprovedName: string | null,
   ): Promise<ParsedWorkout | null> {
     const trimmed = userText.trim().replace(/\s+/g, ' ');
     if (!trimmed) return null;
 
-    const m = SINGLE_SET_RE.exec(trimmed);
+    const m = FULL_RE.exec(trimmed);
     if (!m?.groups) return null;
 
-    const name = m.groups.name.trim();
+    const rawName = m.groups.name?.trim();
     const weight = Number(m.groups.weight);
     const reps = Number(m.groups.reps);
     const weightUnit = LBS_SET.has(m.groups.wunit ?? '') ? 'lbs' : 'kg';
+    const rounds = m.groups.rounds
+      ? Math.min(MAX_ROUNDS, Number(m.groups.rounds))
+      : 1;
 
-    const resolved = await this.resolver.resolveName(name);
+    const nameForResolve =
+      rawName && rawName.length > 0 ? rawName : lastApprovedName;
+    if (!nameForResolve) return null;
+
+    const resolved = await this.resolver.resolveName(nameForResolve);
     if (resolved.kind !== 'existing') return null;
 
-    const sets: ParsedWorkoutSet[] = [
-      { round: 1, reps, weight, weightUnit },
-    ];
+    const sets: ParsedWorkoutSet[] = Array.from(
+      { length: rounds },
+      (_, i) => ({ round: i + 1, reps, weight, weightUnit }),
+    );
 
     return {
       exerciseId: resolved.id,
       exerciseName: resolved.name,
       sets,
-      reply: `${resolved.name} 1세트 맞나요?`,
+      reply: `${resolved.name} ${rounds}세트 맞나요?`,
     };
   }
 }

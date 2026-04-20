@@ -89,4 +89,55 @@ describe('WorkoutParserService', () => {
       expect(r).not.toBeNull();
     });
   });
+
+  describe('N세트 반복', () => {
+    it('벤치프레스 80키로 8개 5세트 → 5개 세트', async () => {
+      resolver.resolveName.mockResolvedValueOnce({
+        kind: 'existing',
+        id: 'ex-bp',
+        name: '벤치프레스',
+      });
+      const r = await service.tryParse('벤치프레스 80키로 8개 5세트', null);
+      expect(r!.sets).toHaveLength(5);
+      expect(r!.sets.map((s) => s.round)).toEqual([1, 2, 3, 4, 5]);
+      expect(r!.sets.every((s) => s.weight === 80 && s.reps === 8)).toBe(true);
+      expect(r!.reply).toMatch(/5\s*세트/);
+    });
+
+    it('풀업 0 10개 4세트 → weight=0 허용', async () => {
+      resolver.resolveName.mockResolvedValueOnce({
+        kind: 'existing',
+        id: 'ex-pu',
+        name: '풀업',
+      });
+      const r = await service.tryParse('풀업 0 10개 4세트', null);
+      expect(r!.sets).toHaveLength(4);
+      expect(r!.sets[0].weight).toBe(0);
+    });
+  });
+
+  describe('lastApprovedName 결합', () => {
+    it('운동명 없이 "80 5" + lastApproved="스쿼트" → 스쿼트로 resolve', async () => {
+      resolver.resolveName.mockResolvedValueOnce({
+        kind: 'existing',
+        id: 'ex-sq',
+        name: '스쿼트',
+      });
+      const r = await service.tryParse('80 5', '스쿼트');
+      expect(r!.exerciseName).toBe('스쿼트');
+      expect(r!.sets[0]).toEqual({
+        round: 1,
+        reps: 5,
+        weight: 80,
+        weightUnit: 'kg',
+      });
+      expect(resolver.resolveName).toHaveBeenCalledWith('스쿼트');
+    });
+
+    it('운동명 없이 lastApproved=null → 양보(null)', async () => {
+      const r = await service.tryParse('80 5', null);
+      expect(r).toBeNull();
+      expect(resolver.resolveName).not.toHaveBeenCalled();
+    });
+  });
 });
