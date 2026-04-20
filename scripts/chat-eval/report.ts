@@ -25,7 +25,14 @@ function summarize(
   rs: EvalResult[],
 ): { total: number; success: number; p50: number; p95: number; byReason: Record<string, number> } {
   const latencies = rs.map((r) => r.latencyMs).sort((a, b) => a - b);
-  const pct = (p: number) => latencies[Math.floor((p / 100) * latencies.length)] ?? 0;
+  const pct = (p: number) => {
+    if (latencies.length === 0) return 0;
+    const idx = Math.min(
+      latencies.length - 1,
+      Math.max(0, Math.ceil((p / 100) * latencies.length) - 1),
+    );
+    return latencies[idx];
+  };
   const byReason: Record<string, number> = {};
   for (const r of rs) byReason[r.failureReason] = (byReason[r.failureReason] ?? 0) + 1;
   return {

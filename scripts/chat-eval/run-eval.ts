@@ -36,10 +36,10 @@ function classifyError(err: unknown): EvalResult['failureReason'] {
   const name = err.name;
   const msg = err.message.toLowerCase();
   if (name === 'ServiceUnavailableException') return 'service_unavailable';
+  if (name === 'ZodError') return 'zod_fail';
   if (msg.includes('timeout')) return 'timeout';
   if (msg.includes('json') || msg.includes('unexpected token'))
     return 'json_parse';
-  if (name === 'ZodError') return 'zod_fail';
   if (msg.includes('api') || msg.includes('fetch')) return 'api_error';
   return 'other';
 }
