@@ -70,4 +70,19 @@ export class RoutineController {
   ) {
     return this.routineService.reorderExercises(id, req.user.id, dto.orderedIds);
   }
+
+  @Patch(':id/exercises/:exerciseId/sets/reorder')
+  reorderSets(
+    @Param('id') id: string,
+    @Param('exerciseId') exerciseId: string,
+    @Body() dto: ReorderDto,
+    @Req() req: any,
+  ) {
+    return this.routineService.reorderSets(
+      id,
+      exerciseId,
+      req.user.id,
+      dto.orderedIds,
+    );
+  }
 }
