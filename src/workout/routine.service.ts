@@ -236,6 +236,33 @@ export class RoutineService {
     return this.findOneInternal(routineId);
   }
 
+  async reorderSets(
+    routineId: string,
+    exerciseId: string,
+    userId: string,
+    orderedIds: string[],
+  ): Promise<WorkoutRoutine> {
+    const routine = await this.routineRepo.findOne({
+      where: { id: routineId, user: { id: userId } },
+      relations: ['exercises', 'exercises.sets'],
+    });
+    if (!routine) throw new NotFoundException('Routine not found');
+
+    const we = routine.exercises.find((e) => e.id === exerciseId);
+    if (!we) throw new NotFoundException('Exercise not found in routine');
+
+    const currentIds = we.sets.map((s) => s.id);
+    this.assertSameSet(currentIds, orderedIds, 'sets');
+
+    await this.dataSource.transaction(async (manager) => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await manager.save(WorkoutSet, { id: orderedIds[i], round: i + 1 });
+      }
+    });
+
+    return this.findOneInternal(routineId);
+  }
+
   private assertSameSet(current: string[], incoming: string[], label: string) {
     if (incoming.length !== current.length) {
       throw new BadRequestException(
