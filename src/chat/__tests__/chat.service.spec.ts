@@ -226,7 +226,8 @@ describe('ChatService', () => {
     expect(sys).toMatch(/직전 승인 운동:\s*스쿼트/);
   });
 
-  it('systemInstruction includes domain context and few-shot examples', async () => {
+  it('systemInstruction 은 핵심 규칙과 RAG 후보를 포함', async () => {
+    rag.findCandidateNames.mockResolvedValueOnce(['스쿼트']);
     gemini.generateJson.mockResolvedValueOnce(
       JSON.stringify({
         reply: 'ok',
@@ -247,10 +248,9 @@ describe('ChatService', () => {
       'user-1',
     );
     const sys = gemini.generateJson.mock.calls[0][0].systemInstruction as string;
-    expect(sys).toMatch(/헬스 운동의 종목명/);
-    expect(sys).toMatch(/덤벨프레스/);
-    expect(sys).toMatch(/벤치프레스/);
-    expect(sys).toMatch(/데드리프트/);
+    expect(sys).toMatch(/Jealth 운동 기록/);
+    expect(sys).toMatch(/한두 글자 차이/);
+    expect(sys).toMatch(/- 스쿼트/);
   });
 
   it('maps assistant→model role in contents', async () => {
