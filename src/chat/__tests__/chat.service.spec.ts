@@ -1,5 +1,4 @@
 import { Test } from '@nestjs/testing';
-import { ServiceUnavailableException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ChatService } from '../chat.service';
 import { ExerciseRagService } from '../services/exercise-rag.service';
@@ -254,16 +253,6 @@ describe('ChatService', () => {
     expect(sys).toMatch(/데드리프트/);
   });
 
-  it('retries Flash on parse failure and eventually fails with ServiceUnavailable', async () => {
-    gemini.generateJson
-      .mockResolvedValueOnce('not json')
-      .mockResolvedValueOnce('still garbage');
-    await expect(service.processMessage(req(), 'user-1')).rejects.toThrow(
-      ServiceUnavailableException,
-    );
-    expect(gemini.generateJson).toHaveBeenCalledTimes(2);
-  });
-
   it('maps assistant→model role in contents', async () => {
     gemini.generateJson.mockResolvedValueOnce(flashJson('스쿼트'));
     resolver.resolveName.mockResolvedValueOnce({
@@ -312,6 +301,24 @@ describe('ChatService', () => {
       });
       await service.processMessage(req(), 'user-1');
       expect(gemini.generateJson).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('retry policy', () => {
+    it('Zod 실패는 재시도 없이 즉시 503', async () => {
+      gemini.generateJson.mockResolvedValueOnce(
+        JSON.stringify({ reply: 'x', confidence: 'high', draft: { exercises: [] } }),
+      );
+      await expect(service.processMessage(req(), 'user-1')).rejects.toThrow();
+      expect(gemini.generateJson).toHaveBeenCalledTimes(1);
+    });
+
+    it('JSON 파싱 실패는 1회 재시도 후 503', async () => {
+      gemini.generateJson
+        .mockResolvedValueOnce('not json')
+        .mockResolvedValueOnce('still garbage');
+      await expect(service.processMessage(req(), 'user-1')).rejects.toThrow();
+      expect(gemini.generateJson).toHaveBeenCalledTimes(2);
     });
   });
 });

@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { DataSource, EntityManager, ILike, In } from 'typeorm';
+import { ZodError } from 'zod';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { ChatResponseDto } from './dto/chat-response.dto';
 import { ApproveNewExerciseDto } from './dto/approve-new-exercise.dto';
@@ -69,6 +70,20 @@ const BASE_SYSTEM_PROMPT = `너는 Jealth 운동 기록 어시스턴트다.
 7. 운동 외 질문이거나 파싱이 불가능하면 name='알 수 없음', confidence='low', reply 로 안내
    ("운동 기록만 도와드려요" 또는 "어떤 운동인지 모르겠어요. 다시 말씀해주세요.").
 8. 숫자·단위 해석이 모호하면 confidence='low'.`;
+
+function classifyFlashError(
+  err: unknown,
+): 'timeout' | 'api_error' | 'json_parse' | 'zod_fail' | 'other' {
+  if (err instanceof ZodError) return 'zod_fail';
+  if (err instanceof SyntaxError) return 'json_parse';
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    if (msg.includes('timeout') || msg.includes('aborted')) return 'timeout';
+    if (msg.includes('fetch') || msg.includes('api') || /\b[45]\d\d\b/.test(msg))
+      return 'api_error';
+  }
+  return 'other';
+}
 
 @Injectable()
 export class ChatService {
@@ -277,28 +292,53 @@ export class ChatService {
       (lastApprovedName ? `\n\n직전 승인 운동: ${lastApprovedName}` : '');
 
     let lastError: string | null = null;
+    let lastReason: 'timeout' | 'api_error' | 'json_parse' | 'zod_fail' | 'other' =
+      'other';
+    let rawPreview: string | null = null;
+
     for (let attempt = 0; attempt < 2; attempt++) {
       const systemInstruction =
         baseInstruction +
-        (lastError
+        (lastError && attempt > 0
           ? `\n\n이전 응답이 다음 이유로 실패했다: ${lastError}\n반드시 스키마에 맞춰 다시 답하라.`
           : '');
+      let text = '';
       try {
-        const text = await this.gemini.generateJson({
+        text = await this.gemini.generateJson({
           systemInstruction,
           contents: req.messages.map((m) => ({
             role: m.role === 'assistant' ? 'model' : 'user',
             parts: [{ text: m.content }],
           })),
           responseSchema,
+          temperature: attempt === 0 ? 0.2 : 0.1,
         });
+        rawPreview = text.slice(0, 200);
         const parsed: unknown = JSON.parse(text);
         return WorkoutDraftZ.parse(parsed);
       } catch (e) {
         lastError = e instanceof Error ? e.message : String(e);
-        this.logger.warn(`Flash attempt ${attempt + 1} failed: ${lastError}`);
+        lastReason = classifyFlashError(e);
+        this.logger.warn({
+          msg: 'flash_attempt_failed',
+          attempt: attempt + 1,
+          reason: lastReason,
+          errorMessage: lastError,
+          promptLength: systemInstruction.length,
+          candidateCount: candidateNames.length,
+          rawResponsePreview: rawPreview,
+        });
+        // Zod 실패는 같은 프롬프트로 재시도해도 같은 결과 → 즉시 중단
+        if (lastReason === 'zod_fail') break;
       }
     }
+    this.logger.error({
+      msg: 'flash_final_failure',
+      reason: lastReason,
+      errorMessage: lastError,
+      candidateCount: candidateNames.length,
+      rawResponsePreview: rawPreview,
+    });
     throw new ServiceUnavailableException({
       message: 'AI 응답을 처리하지 못했습니다',
       reason: lastError ?? 'unknown',
