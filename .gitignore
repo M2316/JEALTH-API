@@ -37,3 +37,6 @@ coverage/
 # Superpowers spec/plan (CLAUDE.md 규칙: 커밋하지 않음)
 docs/superpowers/specs/
 docs/superpowers/plans/
+
+# Chat eval results (local only)
+scripts/chat-eval/results/

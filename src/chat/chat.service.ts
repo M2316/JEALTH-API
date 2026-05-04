@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { DataSource, EntityManager, ILike, In } from 'typeorm';
+import { ZodError } from 'zod';
 import { ChatRequestDto } from './dto/chat-request.dto';
 import { ChatResponseDto } from './dto/chat-response.dto';
 import { ApproveNewExerciseDto } from './dto/approve-new-exercise.dto';
@@ -14,8 +15,8 @@ import {
   ExerciseNameResolverService,
   ResolvedExercise,
 } from './services/exercise-name-resolver.service';
-import { ExerciseMetaInferenceService } from './services/exercise-meta-inference.service';
 import { WorkoutContextService } from './services/workout-context.service';
+import { WorkoutParserService } from './services/workout-parser.service';
 import { ExerciseService } from '../workout/exercise.service';
 import { RoutineService } from '../workout/routine.service';
 import { Exercise } from '../workout/entities/exercise.entity';
@@ -29,45 +30,28 @@ import {
 const BASE_SYSTEM_PROMPT = `너는 Jealth 운동 기록 어시스턴트다.
 사용자의 한국어 메시지를 분석해 운동 기록 JSON 을 생성한다.
 
-전달하는 운동명은 **헬스 운동의 종목명**이다. 한국어 오타(자·모음 혼동, 받침 누락, 유사 발음) 와
-영문·외래어 표기 차이가 흔하다. 아래 예시처럼 한두 글자 차이의 오타는 반드시 공식 종목명으로 보정하라.
-
-운동명 교정 예시 (오타/변형 → 정식 종목명):
-- 덤젤프레스 → 덤벨프레스
-- 덜벨프레스 → 덤벨프레스
-- 밴치프레스 → 벤치프레스
-- 벤취프레스 → 벤치프레스
-- 덷리프트 → 데드리프트
-- 데드리프드 → 데드리프트
-- 스콰트 → 스쿼트
-- 스쿼드 → 스쿼트
-- 풀엎 → 풀업
-- 풀립 → 풀업
-- 레그프레쓰 → 레그프레스
-- 레그컬 → 레그컬 (변경 없음)
-- 랫풀다운 → 랫풀다운 (변경 없음)
-- 렛풀다운 → 랫풀다운
-- 오버헤드프래스 → 오버헤드프레스
-- 밀리터리프레스 → 밀리터리프레스 (변경 없음)
-- 바벨로우 → 바벨로우 (변경 없음)
-- 바벨로오 → 바벨로우
-- 체스트프레스 → 체스트프레스 (변경 없음)
-- 핵스쿼트 → 핵스쿼트 (변경 없음)
-
 규칙:
-1. 제공된 Exercise 후보 이름 목록을 힌트로 사용한다. 사용자 입력이 후보 중 하나와 같거나
-   한두 글자 차이의 오타/별칭이면 **반드시** 후보의 정식 이름으로 정규화해 name 에 반환하라.
-   후보에 없더라도 위 예시 같은 흔한 종목명 오타는 보정하라.
-2. name: 정규화·보정된 공식 운동명.
-   rawName: 사용자가 메시지에 입력한 운동명 단어를 그대로 (오타/별칭 유지).
-   둘 다 반드시 반환. 실제로 보정하지 않은 경우엔 name === rawName 로 동일하게 채움.
-3. 세트·reps·weight 는 사용자 메시지에 명시된 숫자를 그대로. 추측 금지.
-4. weightUnit 은 사용자가 'lbs' 를 명시하지 않으면 'kg'.
-5. reply 는 "X 종목 Y세트 맞나요?" 같은 짧은 컨펌 한국어.
-6. 사용자 메시지에 운동명이 없고 '직전 승인 운동' 힌트가 제공되면, 그 운동명을 name·rawName 에 그대로 사용하라.
-7. 운동 외 질문이거나 파싱이 불가능하면 name='알 수 없음', confidence='low', reply 로 안내
-   ("운동 기록만 도와드려요" 또는 "어떤 운동인지 모르겠어요. 다시 말씀해주세요.").
-8. 숫자·단위 해석이 모호하면 confidence='low'.`;
+1. 운동명 정규화: 아래 Exercise 후보 목록에 입력과 한두 글자 차이의 이름이 있으면 그 후보의 정식 이름을 name 에 반환하라. rawName 에는 사용자가 입력한 단어 그대로 넣고, 실제 보정이 없으면 name === rawName.
+2. 세트·reps·weight 는 메시지에 명시된 숫자를 그대로 써라. 추측 금지.
+3. weightUnit 은 사용자가 'lbs' 를 명시하지 않으면 'kg'.
+4. reply 는 "X 종목 Y세트 맞나요?" 같은 짧은 컨펌 한국어.
+5. 메시지에 운동명이 없고 '직전 승인 운동' 힌트가 있으면 그 이름을 name·rawName 에 사용하라.
+6. 운동 외 질문이거나 파싱 불가면 name='알 수 없음', confidence='low', reply 로 안내.
+7. 숫자·단위가 모호하면 confidence='low'.`;
+
+function classifyFlashError(
+  err: unknown,
+): 'timeout' | 'api_error' | 'json_parse' | 'zod_fail' | 'other' {
+  if (err instanceof ZodError) return 'zod_fail';
+  if (err instanceof SyntaxError) return 'json_parse';
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    if (msg.includes('timeout') || msg.includes('aborted')) return 'timeout';
+    if (msg.includes('fetch') || msg.includes('api') || /\b[45]\d\d\b/.test(msg))
+      return 'api_error';
+  }
+  return 'other';
+}
 
 @Injectable()
 export class ChatService {
@@ -77,11 +61,11 @@ export class ChatService {
     private readonly rag: ExerciseRagService,
     private readonly gemini: GeminiService,
     private readonly resolver: ExerciseNameResolverService,
-    private readonly metaInfer: ExerciseMetaInferenceService,
     private readonly workoutCtx: WorkoutContextService,
     private readonly exerciseSvc: ExerciseService,
     private readonly routineService: RoutineService,
     private readonly dataSource: DataSource,
+    private readonly parser: WorkoutParserService,
   ) {}
 
   async approveNewExercise(dto: ApproveNewExerciseDto, userId: string) {
@@ -133,15 +117,40 @@ export class ChatService {
     const lastUser = [...req.messages].reverse().find((m) => m.role === 'user');
     const userText = lastUser?.content ?? '';
 
-    const [candidateNames, lastApprovedName] = await Promise.all([
+    const lastApprovedName = await this.workoutCtx.getLastApprovedExerciseName(
+      userId,
+      req.date,
+    );
+
+    const parsed = await this.parser.tryParse(userText, lastApprovedName);
+    if (parsed) {
+      return {
+        reply: parsed.reply,
+        confidence: 'high',
+        parseSuccess: true,
+        kind: 'existing',
+        draft: {
+          exercises: [
+            {
+              exerciseId: parsed.exerciseId,
+              name: parsed.exerciseName,
+              sets: parsed.sets,
+            },
+          ],
+        },
+      };
+    }
+
+    const [candidateNames, allMuscleGroups] = await Promise.all([
       this.rag.findCandidateNames(userText),
-      this.workoutCtx.getLastApprovedExerciseName(userId, req.date),
+      this.exerciseSvc.findAllMuscleGroups(),
     ]);
 
     const draft = await this.callFlashWithRetries(
       req,
       candidateNames,
       lastApprovedName,
+      allMuscleGroups,
     );
 
     const hasUnknown = draft.draft.exercises.some(
@@ -197,11 +206,8 @@ export class ChatService {
 
     const newEntry = resolved[0] as { kind: 'new'; name: string };
     const rawEntry = draft.draft.exercises[0];
-    const startedAt = Date.now();
-    const [meta, allMuscleGroups] = await Promise.all([
-      this.metaInfer.inferNewExerciseMeta(newEntry.name),
-      this.exerciseSvc.findAllMuscleGroups(),
-    ]);
+    const suggestedMuscleGroupIds = draft.suggestedMuscleGroupIds ?? [];
+    const suggestedEquipment = draft.suggestedEquipment;
     const originalName =
       rawEntry.rawName && rawEntry.rawName !== newEntry.name
         ? rawEntry.rawName
@@ -209,8 +215,8 @@ export class ChatService {
 
     this.logger.log(
       `new-exercise branch: userId=${userId} name=${newEntry.name} ` +
-        `proMs=${Date.now() - startedAt} suggested=${meta.muscleGroupIds.length} ` +
-        `equipment=${meta.equipment ?? 'none'} original=${originalName ?? 'none'}`,
+        `suggested=${suggestedMuscleGroupIds.length} ` +
+        `equipment=${suggestedEquipment ?? 'none'} original=${originalName ?? 'none'}`,
     );
 
     return {
@@ -227,12 +233,9 @@ export class ChatService {
           },
         ],
       },
-      suggestedMuscleGroupIds: meta.muscleGroupIds,
-      suggestedEquipment: meta.equipment,
-      muscleGroups: allMuscleGroups.map((g: { id: string; name: string }) => ({
-        id: g.id,
-        name: g.name,
-      })),
+      suggestedMuscleGroupIds,
+      suggestedEquipment,
+      muscleGroups: allMuscleGroups.map((g) => ({ id: g.id, name: g.name })),
       ...(originalName ? { originalName } : {}),
     };
   }
@@ -241,41 +244,74 @@ export class ChatService {
     req: ChatRequestDto,
     candidateNames: string[],
     lastApprovedName: string | null,
+    allMuscleGroups: Array<{ id: string; name: string }>,
   ): Promise<WorkoutDraft> {
-    const responseSchema = buildWorkoutDraftResponseSchema();
+    const responseSchema = buildWorkoutDraftResponseSchema(
+      allMuscleGroups.map((g) => g.id),
+    );
     const candidateBlock =
       candidateNames.length > 0
         ? candidateNames.map((n) => `- ${n}`).join('\n')
         : '(후보 없음)';
+    const muscleBlock = allMuscleGroups
+      .map((g) => `- ${g.id}: ${g.name}`)
+      .join('\n');
     const baseInstruction =
       BASE_SYSTEM_PROMPT +
       '\n\nExercise 후보 (정규 이름):\n' +
       candidateBlock +
-      (lastApprovedName ? `\n\n직전 승인 운동: ${lastApprovedName}` : '');
+      (lastApprovedName ? `\n\n직전 승인 운동: ${lastApprovedName}` : '') +
+      '\n\n근육 그룹 (후보에 없는 신규 운동이면 suggestedMuscleGroupIds 에 1개 이상의 id 를 채우고, suggestedEquipment 는 바벨/덤벨/머신/맨몸 중 하나):\n' +
+      muscleBlock;
 
     let lastError: string | null = null;
+    let lastReason: 'timeout' | 'api_error' | 'json_parse' | 'zod_fail' | 'other' =
+      'other';
+    let rawPreview: string | null = null;
+
     for (let attempt = 0; attempt < 2; attempt++) {
       const systemInstruction =
         baseInstruction +
-        (lastError
+        (lastError && attempt > 0
           ? `\n\n이전 응답이 다음 이유로 실패했다: ${lastError}\n반드시 스키마에 맞춰 다시 답하라.`
           : '');
+      let text = '';
       try {
-        const text = await this.gemini.generateJson({
+        text = await this.gemini.generateJson({
           systemInstruction,
           contents: req.messages.map((m) => ({
             role: m.role === 'assistant' ? 'model' : 'user',
             parts: [{ text: m.content }],
           })),
           responseSchema,
+          temperature: attempt === 0 ? 0.2 : 0.1,
         });
+        rawPreview = text.slice(0, 200);
         const parsed: unknown = JSON.parse(text);
         return WorkoutDraftZ.parse(parsed);
       } catch (e) {
         lastError = e instanceof Error ? e.message : String(e);
-        this.logger.warn(`Flash attempt ${attempt + 1} failed: ${lastError}`);
+        lastReason = classifyFlashError(e);
+        this.logger.warn({
+          msg: 'flash_attempt_failed',
+          attempt: attempt + 1,
+          reason: lastReason,
+          errorMessage: lastError,
+          promptLength: systemInstruction.length,
+          candidateCount: candidateNames.length,
+          rawResponsePreview: rawPreview,
+        });
+        // Zod 실패는 같은 프롬프트로 재시도해도 같은 결과 → 즉시 중단
+        if (lastReason === 'zod_fail') break;
       }
     }
+    this.logger.error({
+      msg: 'flash_final_failure',
+      reason: lastReason,
+      errorMessage: lastError,
+      candidateCount: candidateNames.length,
+      rawResponsePreview: rawPreview,
+    });
     throw new ServiceUnavailableException({
       message: 'AI 응답을 처리하지 못했습니다',
       reason: lastError ?? 'unknown',
