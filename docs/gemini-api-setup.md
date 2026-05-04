@@ -300,9 +300,9 @@ const response = await ai.models.generateContent({
 
 위 항목 모두 체크되면 채팅 엔드포인트(`POST /chat/workout`) 본격 구현으로 진입.
 
-## Pro 모델 (근육 그룹 추론)
+## 신규 운동 근육 그룹 추론
 
-신규 운동 생성 branch 에서는 `GEMINI_INFER_MODEL` (기본값 `gemini-3-pro-preview`) 을
-별도로 호출한다. Flash 모델과 같은 API 키를 공유하되, 응답 품질이 중요한 분류 작업에만
-사용하므로 Flash 대비 비용이 약간 높다. 배포 환경에서 유효한 Pro 모델 이름으로 override
-가능.
+신규 운동(후보에 없는 운동) 의 근육 그룹·장비 추론은 Flash 응답 스키마의
+`suggestedMuscleGroupIds` / `suggestedEquipment` 필드로 통합되어 단일 호출에서 함께
+반환된다. (이전 버전에서는 `gemini-3-pro-preview` 별도 호출을 썼지만, 호출 수와 지연을
+줄이기 위해 Flash 단일 호출로 통합했다.)
