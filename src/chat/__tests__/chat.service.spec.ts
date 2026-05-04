@@ -7,6 +7,7 @@ import { GeminiService } from '../services/gemini.service';
 import { ExerciseNameResolverService } from '../services/exercise-name-resolver.service';
 import { ExerciseMetaInferenceService } from '../services/exercise-meta-inference.service';
 import { WorkoutContextService } from '../services/workout-context.service';
+import { WorkoutParserService } from '../services/workout-parser.service';
 import { ExerciseService } from '../../workout/exercise.service';
 import { RoutineService } from '../../workout/routine.service';
 
@@ -18,6 +19,7 @@ describe('ChatService', () => {
   let metaInfer: { inferNewExerciseMeta: jest.Mock };
   let workoutCtx: { getLastApprovedExerciseName: jest.Mock };
   let exerciseSvc: { findAllMuscleGroups: jest.Mock };
+  let parser: { tryParse: jest.Mock };
 
   beforeEach(async () => {
     rag = { findCandidateNames: jest.fn().mockResolvedValue([]) };
@@ -28,6 +30,7 @@ describe('ChatService', () => {
       getLastApprovedExerciseName: jest.fn().mockResolvedValue(null),
     };
     exerciseSvc = { findAllMuscleGroups: jest.fn().mockResolvedValue([]) };
+    parser = { tryParse: jest.fn().mockResolvedValue(null) };
     const module = await Test.createTestingModule({
       providers: [
         ChatService,
@@ -36,6 +39,7 @@ describe('ChatService', () => {
         { provide: ExerciseNameResolverService, useValue: resolver },
         { provide: ExerciseMetaInferenceService, useValue: metaInfer },
         { provide: WorkoutContextService, useValue: workoutCtx },
+        { provide: WorkoutParserService, useValue: parser },
         { provide: ExerciseService, useValue: exerciseSvc },
         { provide: RoutineService, useValue: { appendExerciseWithSetsTx: jest.fn() } },
         { provide: DataSource, useValue: { transaction: jest.fn() } },
@@ -278,5 +282,36 @@ describe('ChatService', () => {
     );
     const contents = gemini.generateJson.mock.calls[0][0].contents;
     expect(contents.map((c: any) => c.role)).toEqual(['user', 'model', 'user']);
+  });
+
+  describe('parser fast path', () => {
+    it('parser 성공 시 Flash/RAG 미호출, kind=existing 응답', async () => {
+      parser.tryParse.mockResolvedValueOnce({
+        exerciseId: 'ex-dl',
+        exerciseName: '데드리프트',
+        sets: [{ round: 1, reps: 10, weight: 100, weightUnit: 'kg' }],
+        reply: '데드리프트 1세트 맞나요?',
+      });
+      const r = await service.processMessage(
+        { date: '2026-04-19', messages: [{ role: 'user', content: '데드리프트 100키로 10개' }] },
+        'user-1',
+      );
+      expect(r.kind).toBe('existing');
+      expect(r.parseSuccess).toBe(true);
+      expect(r.draft.exercises[0].exerciseId).toBe('ex-dl');
+      expect(r.draft.exercises[0].name).toBe('데드리프트');
+      expect(gemini.generateJson).not.toHaveBeenCalled();
+      expect(rag.findCandidateNames).not.toHaveBeenCalled();
+    });
+
+    it('parser null 반환 시 Flash 경로 진입', async () => {
+      parser.tryParse.mockResolvedValueOnce(null);
+      gemini.generateJson.mockResolvedValueOnce(flashJson('스쿼트'));
+      resolver.resolveName.mockResolvedValueOnce({
+        kind: 'existing', id: 'ex-1', name: '스쿼트',
+      });
+      await service.processMessage(req(), 'user-1');
+      expect(gemini.generateJson).toHaveBeenCalledTimes(1);
+    });
   });
 });

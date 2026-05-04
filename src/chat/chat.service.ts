@@ -16,6 +16,7 @@ import {
 } from './services/exercise-name-resolver.service';
 import { ExerciseMetaInferenceService } from './services/exercise-meta-inference.service';
 import { WorkoutContextService } from './services/workout-context.service';
+import { WorkoutParserService } from './services/workout-parser.service';
 import { ExerciseService } from '../workout/exercise.service';
 import { RoutineService } from '../workout/routine.service';
 import { Exercise } from '../workout/entities/exercise.entity';
@@ -82,6 +83,7 @@ export class ChatService {
     private readonly exerciseSvc: ExerciseService,
     private readonly routineService: RoutineService,
     private readonly dataSource: DataSource,
+    private readonly parser: WorkoutParserService,
   ) {}
 
   async approveNewExercise(dto: ApproveNewExerciseDto, userId: string) {
@@ -133,10 +135,31 @@ export class ChatService {
     const lastUser = [...req.messages].reverse().find((m) => m.role === 'user');
     const userText = lastUser?.content ?? '';
 
-    const [candidateNames, lastApprovedName] = await Promise.all([
-      this.rag.findCandidateNames(userText),
-      this.workoutCtx.getLastApprovedExerciseName(userId, req.date),
-    ]);
+    const lastApprovedName = await this.workoutCtx.getLastApprovedExerciseName(
+      userId,
+      req.date,
+    );
+
+    const parsed = await this.parser.tryParse(userText, lastApprovedName);
+    if (parsed) {
+      return {
+        reply: parsed.reply,
+        confidence: 'high',
+        parseSuccess: true,
+        kind: 'existing',
+        draft: {
+          exercises: [
+            {
+              exerciseId: parsed.exerciseId,
+              name: parsed.exerciseName,
+              sets: parsed.sets,
+            },
+          ],
+        },
+      };
+    }
+
+    const candidateNames = await this.rag.findCandidateNames(userText);
 
     const draft = await this.callFlashWithRetries(
       req,

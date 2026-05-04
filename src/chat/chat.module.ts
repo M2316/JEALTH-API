@@ -12,6 +12,7 @@ import { GeminiService } from './services/gemini.service';
 import { ExerciseNameResolverService } from './services/exercise-name-resolver.service';
 import { ExerciseMetaInferenceService } from './services/exercise-meta-inference.service';
 import { WorkoutContextService } from './services/workout-context.service';
+import { WorkoutParserService } from './services/workout-parser.service';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { WorkoutContextService } from './services/workout-context.service';
     ExerciseNameResolverService,
     ExerciseMetaInferenceService,
     WorkoutContextService,
+    WorkoutParserService,
   ],
   exports: [
     ChatService,
@@ -35,6 +37,7 @@ import { WorkoutContextService } from './services/workout-context.service';
     ExerciseNameResolverService,
     ExerciseMetaInferenceService,
     WorkoutContextService,
+    WorkoutParserService,
   ],
 })
 export class ChatModule {}
