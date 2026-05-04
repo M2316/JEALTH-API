@@ -15,7 +15,6 @@ import {
   ExerciseNameResolverService,
   ResolvedExercise,
 } from './services/exercise-name-resolver.service';
-import { ExerciseMetaInferenceService } from './services/exercise-meta-inference.service';
 import { WorkoutContextService } from './services/workout-context.service';
 import { WorkoutParserService } from './services/workout-parser.service';
 import { ExerciseService } from '../workout/exercise.service';
@@ -62,7 +61,6 @@ export class ChatService {
     private readonly rag: ExerciseRagService,
     private readonly gemini: GeminiService,
     private readonly resolver: ExerciseNameResolverService,
-    private readonly metaInfer: ExerciseMetaInferenceService,
     private readonly workoutCtx: WorkoutContextService,
     private readonly exerciseSvc: ExerciseService,
     private readonly routineService: RoutineService,
@@ -143,12 +141,16 @@ export class ChatService {
       };
     }
 
-    const candidateNames = await this.rag.findCandidateNames(userText);
+    const [candidateNames, allMuscleGroups] = await Promise.all([
+      this.rag.findCandidateNames(userText),
+      this.exerciseSvc.findAllMuscleGroups(),
+    ]);
 
     const draft = await this.callFlashWithRetries(
       req,
       candidateNames,
       lastApprovedName,
+      allMuscleGroups,
     );
 
     const hasUnknown = draft.draft.exercises.some(
@@ -204,11 +206,8 @@ export class ChatService {
 
     const newEntry = resolved[0] as { kind: 'new'; name: string };
     const rawEntry = draft.draft.exercises[0];
-    const startedAt = Date.now();
-    const [meta, allMuscleGroups] = await Promise.all([
-      this.metaInfer.inferNewExerciseMeta(newEntry.name),
-      this.exerciseSvc.findAllMuscleGroups(),
-    ]);
+    const suggestedMuscleGroupIds = draft.suggestedMuscleGroupIds ?? [];
+    const suggestedEquipment = draft.suggestedEquipment;
     const originalName =
       rawEntry.rawName && rawEntry.rawName !== newEntry.name
         ? rawEntry.rawName
@@ -216,8 +215,8 @@ export class ChatService {
 
     this.logger.log(
       `new-exercise branch: userId=${userId} name=${newEntry.name} ` +
-        `proMs=${Date.now() - startedAt} suggested=${meta.muscleGroupIds.length} ` +
-        `equipment=${meta.equipment ?? 'none'} original=${originalName ?? 'none'}`,
+        `suggested=${suggestedMuscleGroupIds.length} ` +
+        `equipment=${suggestedEquipment ?? 'none'} original=${originalName ?? 'none'}`,
     );
 
     return {
@@ -234,12 +233,9 @@ export class ChatService {
           },
         ],
       },
-      suggestedMuscleGroupIds: meta.muscleGroupIds,
-      suggestedEquipment: meta.equipment,
-      muscleGroups: allMuscleGroups.map((g: { id: string; name: string }) => ({
-        id: g.id,
-        name: g.name,
-      })),
+      suggestedMuscleGroupIds,
+      suggestedEquipment,
+      muscleGroups: allMuscleGroups.map((g) => ({ id: g.id, name: g.name })),
       ...(originalName ? { originalName } : {}),
     };
   }
@@ -248,17 +244,25 @@ export class ChatService {
     req: ChatRequestDto,
     candidateNames: string[],
     lastApprovedName: string | null,
+    allMuscleGroups: Array<{ id: string; name: string }>,
   ): Promise<WorkoutDraft> {
-    const responseSchema = buildWorkoutDraftResponseSchema();
+    const responseSchema = buildWorkoutDraftResponseSchema(
+      allMuscleGroups.map((g) => g.id),
+    );
     const candidateBlock =
       candidateNames.length > 0
         ? candidateNames.map((n) => `- ${n}`).join('\n')
         : '(후보 없음)';
+    const muscleBlock = allMuscleGroups
+      .map((g) => `- ${g.id}: ${g.name}`)
+      .join('\n');
     const baseInstruction =
       BASE_SYSTEM_PROMPT +
       '\n\nExercise 후보 (정규 이름):\n' +
       candidateBlock +
-      (lastApprovedName ? `\n\n직전 승인 운동: ${lastApprovedName}` : '');
+      (lastApprovedName ? `\n\n직전 승인 운동: ${lastApprovedName}` : '') +
+      '\n\n근육 그룹 (후보에 없는 신규 운동이면 suggestedMuscleGroupIds 에 1개 이상의 id 를 채우고, suggestedEquipment 는 바벨/덤벨/머신/맨몸 중 하나):\n' +
+      muscleBlock;
 
     let lastError: string | null = null;
     let lastReason: 'timeout' | 'api_error' | 'json_parse' | 'zod_fail' | 'other' =

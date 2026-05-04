@@ -10,7 +10,6 @@ import { ChatService } from './chat.service';
 import { ExerciseRagService } from './services/exercise-rag.service';
 import { GeminiService } from './services/gemini.service';
 import { ExerciseNameResolverService } from './services/exercise-name-resolver.service';
-import { ExerciseMetaInferenceService } from './services/exercise-meta-inference.service';
 import { WorkoutContextService } from './services/workout-context.service';
 import { WorkoutParserService } from './services/workout-parser.service';
 
@@ -26,7 +25,6 @@ import { WorkoutParserService } from './services/workout-parser.service';
     ExerciseRagService,
     GeminiService,
     ExerciseNameResolverService,
-    ExerciseMetaInferenceService,
     WorkoutContextService,
     WorkoutParserService,
   ],
@@ -35,7 +33,6 @@ import { WorkoutParserService } from './services/workout-parser.service';
     ExerciseRagService,
     GeminiService,
     ExerciseNameResolverService,
-    ExerciseMetaInferenceService,
     WorkoutContextService,
     WorkoutParserService,
   ],

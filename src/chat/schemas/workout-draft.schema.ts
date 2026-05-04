@@ -1,7 +1,9 @@
 import { Type } from '@google/genai';
 import { z } from 'zod';
 
-export const buildWorkoutDraftResponseSchema = () => ({
+const EQUIPMENT_ENUM = ['바벨', '덤벨', '머신', '맨몸'] as const;
+
+export const buildWorkoutDraftResponseSchema = (muscleGroupIds: string[]) => ({
   type: Type.OBJECT,
   properties: {
     reply: {
@@ -44,9 +46,20 @@ export const buildWorkoutDraftResponseSchema = () => ({
       },
       required: ['exercises'],
     },
+    suggestedMuscleGroupIds: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING, enum: muscleGroupIds },
+    },
+    suggestedEquipment: { type: Type.STRING, enum: [...EQUIPMENT_ENUM] },
   },
   required: ['reply', 'confidence', 'draft'],
-  propertyOrdering: ['reply', 'confidence', 'draft'],
+  propertyOrdering: [
+    'reply',
+    'confidence',
+    'draft',
+    'suggestedMuscleGroupIds',
+    'suggestedEquipment',
+  ],
 } as const);
 
 const WorkoutSetZ = z.object({
@@ -68,6 +81,8 @@ export const WorkoutDraftZ = z.object({
   draft: z.object({
     exercises: z.array(WorkoutExerciseZ).min(1),
   }),
+  suggestedMuscleGroupIds: z.array(z.string()).optional(),
+  suggestedEquipment: z.enum(EQUIPMENT_ENUM).optional(),
 });
 
 export type WorkoutDraft = z.infer<typeof WorkoutDraftZ>;
