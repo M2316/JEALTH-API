@@ -41,6 +41,9 @@ export class WorkoutParserService {
     const trimmed = userText.trim().replace(/\s+/g, ' ');
     if (!trimmed) return null;
 
+    // Multi-exercise hint — yield so Flash can handle combined messages.
+    if (/[,;\n]/.test(trimmed)) return null;
+
     const m = FULL_RE.exec(trimmed);
     if (!m?.groups) return null;
 

@@ -146,4 +146,34 @@ describe('WorkoutParserService', () => {
       expect(resolver.resolveName).not.toHaveBeenCalled();
     });
   });
+
+  describe('양보(null) 케이스', () => {
+    it('resolver 가 new 반환 시 null', async () => {
+      resolver.resolveName.mockResolvedValueOnce({ kind: 'new', name: '힙쓰러스트' });
+      const r = await service.tryParse('힙쓰러스트 80 10', null);
+      expect(r).toBeNull();
+    });
+
+    it('쉼표가 섞이면 null (다중 운동 의심)', async () => {
+      const r = await service.tryParse('스쿼트 100 10, 벤치 80 8', null);
+      expect(r).toBeNull();
+      expect(resolver.resolveName).not.toHaveBeenCalled();
+    });
+
+    it('운동 외 질문 → null', async () => {
+      const r = await service.tryParse('오늘 뭐할까', null);
+      expect(r).toBeNull();
+      expect(resolver.resolveName).not.toHaveBeenCalled();
+    });
+
+    it('빈 문자열 → null', async () => {
+      const r = await service.tryParse('', null);
+      expect(r).toBeNull();
+    });
+
+    it('숫자 하나만 → null (regex 미매치)', async () => {
+      const r = await service.tryParse('스쿼트 100', null);
+      expect(r).toBeNull();
+    });
+  });
 });
