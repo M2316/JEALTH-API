@@ -9,7 +9,7 @@ export interface EvalCase {
     | 'low-confidence'
     | 'edge';
   text: string;
-  // 옵션. "정답" 근육군 집합 (신규 운동 케이스에서 Flash/Pro 정확도 비교용)
+  // 옵션. "정답" 근육군 집합 (신규 운동 케이스에서 Flash 추론 정확도 평가용)
   expectedMuscleGroups?: string[];
 }
 

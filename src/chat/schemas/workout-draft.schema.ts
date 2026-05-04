@@ -75,14 +75,22 @@ const WorkoutExerciseZ = z.object({
   sets: z.array(WorkoutSetZ).min(1),
 });
 
-export const WorkoutDraftZ = z.object({
-  reply: z.string().min(1),
-  confidence: z.enum(['high', 'low']),
-  draft: z.object({
-    exercises: z.array(WorkoutExerciseZ).min(1),
-  }),
-  suggestedMuscleGroupIds: z.array(z.string()).optional(),
-  suggestedEquipment: z.enum(EQUIPMENT_ENUM).optional(),
-});
+// confidence='low' 인 경우 exercises 가 비어있어도 허용한다. ChatService 가
+// low-confidence/empty 케이스를 별도 분기로 처리하므로, Zod 단계에서 빈 배열을
+// 거부하면 "안녕" 같은 운동 외 입력이 503 으로 떨어지는 회귀가 생긴다.
+export const WorkoutDraftZ = z
+  .object({
+    reply: z.string().min(1),
+    confidence: z.enum(['high', 'low']),
+    draft: z.object({
+      exercises: z.array(WorkoutExerciseZ),
+    }),
+    suggestedMuscleGroupIds: z.array(z.string()).optional(),
+    suggestedEquipment: z.enum(EQUIPMENT_ENUM).optional(),
+  })
+  .refine(
+    (d) => d.confidence === 'low' || d.draft.exercises.length >= 1,
+    { message: 'high confidence requires at least one exercise' },
+  );
 
 export type WorkoutDraft = z.infer<typeof WorkoutDraftZ>;

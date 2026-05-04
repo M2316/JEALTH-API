@@ -200,6 +200,27 @@ describe('ChatService', () => {
     expect(resolver.resolveName).not.toHaveBeenCalled();
   });
 
+  it('low confidence + empty exercises 도 503 없이 안내 응답', async () => {
+    // Gemini 가 confidence=low 와 함께 exercises=[] 를 반환하는 경우
+    // (운동 외 입력에서 자주 발생). Zod schema 가 거부해 503 으로 떨어지면 회귀.
+    gemini.generateJson.mockResolvedValueOnce(
+      JSON.stringify({
+        reply: '운동 기록만 도와드려요',
+        confidence: 'low',
+        draft: { exercises: [] },
+      }),
+    );
+    const r = await service.processMessage(
+      { date: '2026-04-19', messages: [{ role: 'user', content: '안녕' }] },
+      'user-1',
+    );
+    expect(r.confidence).toBe('low');
+    expect(r.kind).toBe('existing');
+    expect(r.parseSuccess).toBe(false);
+    expect(r.draft.exercises).toEqual([]);
+    expect(gemini.generateJson).toHaveBeenCalledTimes(1);
+  });
+
   it('multi-exercise with any new: low-confidence fallback', async () => {
     gemini.generateJson.mockResolvedValueOnce(
       JSON.stringify({
